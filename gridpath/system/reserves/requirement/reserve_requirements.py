@@ -14,7 +14,7 @@
 
 import csv
 import os.path
-from pyomo.environ import Param, Set, NonNegativeReals, PercentFraction, Expression
+from pyomo.environ import Param, Set, NonNegativeReals, PercentFraction, Reals, Expression
 
 
 def generic_add_model_components(
@@ -87,7 +87,7 @@ def generic_add_model_components(
         m,
         prj_power_param,
         Param(
-            getattr(m, ba_prj_req_contribution_set), within=PercentFraction, default=0
+            getattr(m, ba_prj_req_contribution_set), within=Reals, default=0
         ),
     )
 
@@ -95,7 +95,7 @@ def generic_add_model_components(
         m,
         prj_capacity_param,
         Param(
-            getattr(m, ba_prj_req_contribution_set), within=PercentFraction, default=0
+            getattr(m, ba_prj_req_contribution_set), within=Reals, default=0
         ),
     )
 
