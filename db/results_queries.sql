@@ -72,7 +72,7 @@ USING (scenario_id, scenario_name, project, technology, period)
 -- 'commitment_table' (like the commented-out example with the
 -- results_project_dispatch_hybridized table)
 select scenario_id, project, period, horizon, timepoint, timepoint_weight,
-commitment, power_mw, spin_mw, reg_up_mw, reg_down_mw, lf_up_mw, lf_down_mw,
+commitment, power_mw, iner_mw, spin_mw, reg_up_mw, reg_down_mw, lf_up_mw, lf_down_mw,
  frq_resp_mw
 from
 (select scenario_id, project, period, horizon, timepoint, timepoint_weight, project, power_mw
@@ -91,6 +91,10 @@ USING (scenario_id, project, period, horizon, timepoint)
 left join
 (select scenario_id, project, period, horizon, timepoint,
 reserve_provision_mw as spin_mw from results_project_spinning_reserves) as spin_tbl
+USING (scenario_id, project, period, horizon, timepoint)
+left join
+(select scenario_id, project, period, horizon, timepoint,
+reserve_provision_mw as iner_mw from results_project_inertia_reserves) as iner_tbl
 USING (scenario_id, project, period, horizon, timepoint)
 left join
 (select scenario_id, project, period, horizon, timepoint,
