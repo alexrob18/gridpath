@@ -84,7 +84,7 @@ reserves/spinning_reserves/req,spinning_reserves,spinning_reserves_scenario_id,s
 reserves/spinning_reserves/req,spinning_reserves,spinning_reserves_scenario_id,system_spinning_reserves_percent_lz_map,dir_aux,,0,0,percentage_load_zone_map.csv,,,
 reserves/spinning_reserves/req,spinning_reserves,spinning_reserves_scenario_id,system_spinning_reserves_project,dir_aux,,0,0,project.csv,,,
 reserves/inertia_reserves/geography_inertia_reserves_bas,inertia_reserves,inertia_reserves_ba_scenario_id,geography_inertia_reserves_bas,simple,,0,0,,,,
-reserves/inertia_reserves/project_inertia_reserves_bas,inertia_reserves,project_inertia_reserves_ba_scenario_id,projectinertia_reserves_bas,simple,,0,0,,,,
+reserves/inertia_reserves/project_inertia_reserves_bas,inertia_reserves,project_inertia_reserves_ba_scenario_id,project_inertia_reserves_bas,simple,,0,0,,,,
 reserves/inertia_reserves/req,inertia_reserves,inertia_reserves_scenario_id,system_inertia_reserves,dir_main,,0,0,timepoint.csv,,,
 reserves/inertia_reserves/req,inertia_reserves,inertia_reserves_scenario_id,system_inertia_reserves_percent,dir_aux,,0,0,percentage.csv,,,
 reserves/inertia_reserves/req,inertia_reserves,inertia_reserves_scenario_id,system_inertia_reserves_percent_lz_map,dir_aux,,0,0,percentage_load_zone_map.csv,,,
