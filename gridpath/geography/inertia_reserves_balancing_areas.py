@@ -54,7 +54,7 @@ def load_model_data(m, d, data_portal, scenario_directory, subproblem, stage):
             "inertia_reserves_balancing_areas.tab",
         ),
         select=("balancing_area", "allow_violation", "violation_penalty_per_mw"),
-        index=m.FREQUENCY_RESPONSE_BAS,
+        index=m.INERTIA_RESERVES_ZONES,
         param=(
             m.inertia_reserves_allow_violation,
             m.inertia_reserves_violation_penalty_per_mw,
