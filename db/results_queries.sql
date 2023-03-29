@@ -98,6 +98,10 @@ reserve_provision_mw as iner_mw from results_project_inertia_reserves) as iner_t
 USING (scenario_id, project, period, horizon, timepoint)
 left join
 (select scenario_id, project, period, horizon, timepoint,
+reserve_provision_mw as iner_ffr_mw from results_project_inertia_with_ffr_reserves) as iner_ffr_tbl
+USING (scenario_id, project, period, horizon, timepoint)
+left join
+(select scenario_id, project, period, horizon, timepoint,
 reserve_provision_mw as reg_up_mw from results_project_regulation_up) as reg_up_tbl
 USING (scenario_id, project, period, horizon, timepoint)
 left join

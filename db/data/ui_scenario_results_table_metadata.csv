@@ -21,6 +21,7 @@ results_project_regulation_up,1,Project Regulation Up
 results_project_energy_target,1,Project RPS Contributions
 results_project_spinning_reserves,1,Project Spinning Reserves
 results_project_inertia_reserves,1,Project Inertia Reserves
+results_project_inertia_with_ffr_reserves,1,Project Inertia with FFR Reserves
 results_system_carbon_emissions,1,System Carbon Emissions
 results_system_frequency_response_balance,1,System Frequency Response Balance
 results_system_frequency_response_partial_balance,1,System Frequency Response (Partial) Balance
@@ -34,6 +35,7 @@ results_system_regulation_up_balance,1,System Regulation Up Balance
 results_system_energy_target,1,System RPS
 results_system_spinning_reserves_balance,1,System Spining Reserves Balance
 results_system_inertia_reserves_balance,1,System Inertia Reserves Balance
+results_system_inertia_with_ffr_reserves_balance,1,System Inertia with FFR Reserves Balance
 results_transmission_capacity,1,Transmission Capacity
 results_transmission_capacity_new_build,1,Transmission New Build Capacity
 results_transmission_carbon_emissions,1,Transmission Carbon Emissions

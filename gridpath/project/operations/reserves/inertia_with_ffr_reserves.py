@@ -30,23 +30,23 @@ from gridpath.project.operations.reserves.reserve_provision import (
 )
 
 # Reserve-module variables
-MODULE_NAME = "inertia_reserves"
+MODULE_NAME = "inertia_with_ffr_reserves"
 # Dynamic components
 HEADROOM_OR_FOOTROOM_DICT_NAME = headroom_variables
 # Inputs
-BA_COLUMN_NAME_IN_INPUT_FILE = "inertia_reserves_ba"
-RESERVE_PROVISION_DERATE_COLUMN_NAME_IN_INPUT_FILE = "inertia_reserves_derate"
-RESERVE_BALANCING_AREAS_INPUT_FILE_NAME = "inertia_reserves_balancing_areas.tab"
+BA_COLUMN_NAME_IN_INPUT_FILE = "inertia_with_ffr_reserves_ba"
+RESERVE_PROVISION_DERATE_COLUMN_NAME_IN_INPUT_FILE = "inertia_with_ffr_reserves_derate"
+RESERVE_BALANCING_AREAS_INPUT_FILE_NAME = "inertia_with_ffr_reserves_balancing_areas.tab"
 # Model components
-RESERVE_PROVISION_VARIABLE_NAME = "Provide_Inertia_Reserves_MW"
-RESERVE_PROVISION_DERATE_PARAM_NAME = "inertia_reserves_derate"
+RESERVE_PROVISION_VARIABLE_NAME = "Provide_Inertia_with_ffr_Reserves_MW"
+RESERVE_PROVISION_DERATE_PARAM_NAME = "inertia_with_ffr_reserves_derate"
 RESERVE_TO_ENERGY_ADJUSTMENT_PARAM_NAME = (
-    "inertia_reserves_reserve_to_energy_adjustment"
+    "inertia_with_ffr_reserves_reserve_to_energy_adjustment"
 )
-RESERVE_BALANCING_AREA_PARAM_NAME = "inertia_reserves_zone"
-RESERVE_PROJECTS_SET_NAME = "INERTIA_RESERVES_PROJECTS"
-RESERVE_BALANCING_AREAS_SET_NAME = "INERTIA_RESERVES_ZONES"
-RESERVE_PRJ_OPR_TMPS_SET_NAME = "INERTIA_RESERVES_PRJ_OPR_TMPS"
+RESERVE_BALANCING_AREA_PARAM_NAME = "inertia_with_ffr_reserves_zone"
+RESERVE_PROJECTS_SET_NAME = "INERTIA_WITH_FFR_RESERVES_PROJECTS"
+RESERVE_BALANCING_AREAS_SET_NAME = "INERTIA_WITH_FFR_RESERVES_ZONES"
+RESERVE_PRJ_OPR_TMPS_SET_NAME = "INERTIA_WITH_FFR_RESERVES_PRJ_OPR_TMPS"
 
 
 def record_dynamic_components(d, scenario_directory, subproblem, stage):
@@ -165,9 +165,9 @@ def get_inputs_from_database(scenario_id, subscenarios, subproblem, stage, conn)
         subproblem=subproblem,
         stage=stage,
         conn=conn,
-        reserve_type="inertia_reserves",
-        project_ba_subscenario_id=subscenarios.PROJECT_INERTIA_RESERVES_BA_SCENARIO_ID,
-        ba_subscenario_id=subscenarios.INERTIA_RESERVES_BA_SCENARIO_ID,
+        reserve_type="inertia_with_ffr_reserves",
+        project_ba_subscenario_id=subscenarios.PROJECT_INERTIA_WITH_FFR_RESERVES_BA_SCENARIO_ID,
+        ba_subscenario_id=subscenarios.INERTIA_WITH_FFR_RESERVES_BA_SCENARIO_ID,
     )
 
     return project_bas, prj_derates
@@ -189,9 +189,9 @@ def validate_inputs(scenario_id, subscenarios, subproblem, stage, conn):
         subproblem=subproblem,
         stage=stage,
         conn=conn,
-        reserve_type="inertia_reserves",
-        project_ba_subscenario_id=subscenarios.PROJECT_INERTIA_RESERVES_BA_SCENARIO_ID,
-        ba_subscenario_id=subscenarios.INERTIA_RESERVES_BA_SCENARIO_ID,
+        reserve_type="inertia_with_ffr_reserves",
+        project_ba_subscenario_id=subscenarios.PROJECT_INERTIA_WITH_FFR_RESERVES_BA_SCENARIO_ID,
+        ba_subscenario_id=subscenarios.INERTIA_WITH_FFR_RESERVES_BA_SCENARIO_ID,
     )
 
 
@@ -235,8 +235,8 @@ def write_model_inputs(
 
         # Append column header
         header = next(reader)
-        header.append("inertia_reserves_ba")
-        header.append("inertia_reserves_derate")
+        header.append("inertia_with_ffr_reserves_ba")
+        header.append("inertia_with_ffr_reserves_derate")
         new_rows.append(header)
 
         # Append correct values
@@ -284,7 +284,7 @@ def import_results_into_database(
     :return:
     """
     if not quiet:
-        print("project inertia reserves provision")
+        print("project inertia with FFR reserves provision")
 
     generic_import_results_into_database(
         scenario_id=scenario_id,
@@ -293,5 +293,5 @@ def import_results_into_database(
         c=c,
         db=db,
         results_directory=results_directory,
-        reserve_type="inertia_reserves",
+        reserve_type="inertia_with_ffr_reserves",
     )

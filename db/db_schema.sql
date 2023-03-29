@@ -535,6 +535,25 @@ FOREIGN KEY (inertia_reserves_ba_scenario_id) REFERENCES
 subscenarios_geography_inertia_reserves_bas (inertia_reserves_ba_scenario_id)
 );
 
+DROP TABLE IF EXISTS subscenarios_geography_inertia_with_ffr_reserves_bas;
+CREATE TABLE subscenarios_geography_inertia_with_ffr_reserves_bas (
+inertia_with_ffr_reserves_ba_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+name VARCHAR(32),
+description VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_geography_inertia_with_ffr_reserves_bas;
+CREATE TABLE inputs_geography_inertia_with_ffr_reserves_bas (
+inertia_with_ffr_reserves_ba_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+allow_violation INTEGER,
+violation_penalty_per_mw FLOAT,
+reserve_to_energy_adjustment FLOAT,
+PRIMARY KEY (inertia_with_ffr_reserves_ba_scenario_id, inertia_with_ffr_reserves_ba),
+FOREIGN KEY (inertia_with_ffr_reserves_ba_scenario_id) REFERENCES
+subscenarios_geography_inertia_with_ffr_reserves_bas (inertia_with_ffr_reserves_ba_scenario_id)
+);
+
 -- Energy target
 -- This is the unit at which energy target requirements are met in the model; it can be
 -- different from the load zones
@@ -1035,6 +1054,7 @@ regulation_up_derate FLOAT,
 regulation_down_derate FLOAT,
 frequency_response_derate FLOAT,
 inertia_reserves_derate FLOAT,
+inertia_with_ffr_reserves_derate FLOAT,
 spinning_reserves_derate FLOAT,
 lf_reserves_up_ramp_rate FLOAT,
 lf_reserves_down_ramp_rate FLOAT,
@@ -1042,6 +1062,7 @@ regulation_up_ramp_rate FLOAT,
 regulation_down_ramp_rate FLOAT,
 frequency_response_ramp_rate FLOAT,
 inertia_reserves_ramp_rate FLOAT,
+inertia_with_ffr_reserves_ramp_rate FLOAT,
 spinning_reserves_ramp_rate FLOAT,
 powerunithour_per_fuelunit FLOAT,
 cap_factor_limits_scenario_id INTEGER,
@@ -1515,6 +1536,24 @@ PRIMARY KEY (project_inertia_reserves_ba_scenario_id, project),
 FOREIGN KEY (project_inertia_reserves_ba_scenario_id)
 REFERENCES subscenarios_project_inertia_reserves_bas
  (project_inertia_reserves_ba_scenario_id)
+);
+
+DROP TABLE IF EXISTS subscenarios_project_inertia_with_ffr_reserves_bas;
+CREATE TABLE subscenarios_project_inertia_with_ffr_reserves_bas (
+project_inertia_with_ffr_reserves_ba_scenario_id INTEGER PRIMARY KEY,
+name VARCHAR(32),
+description VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_project_inertia_with_ffr_reserves_bas;
+CREATE TABLE inputs_project_inertia_with_ffr_reserves_bas (
+project_inertia_with_ffr_reserves_ba_scenario_id INTEGER,
+project VARCHAR(64),
+inertia_with_ffr_reserves_ba VARCHAR(32),
+PRIMARY KEY (project_inertia_with_ffr_reserves_ba_scenario_id, project),
+FOREIGN KEY (project_inertia_with_ffr_reserves_ba_scenario_id)
+REFERENCES subscenarios_project_inertia_with_ffr_reserves_bas
+ (project_inertia_with_ffr_reserves_ba_scenario_id)
 );
 
 -- Project energy target zones
@@ -2782,6 +2821,66 @@ percent_capacity_req FLOAT,
 PRIMARY KEY (inertia_reserves_scenario_id, inertia_reserves_ba, stage_id, project)
 );
 
+
+-- inertia_with_ffr reserves
+DROP TABLE IF EXISTS subscenarios_system_inertia_with_ffr_reserves;
+CREATE TABLE subscenarios_system_inertia_with_ffr_reserves (
+inertia_with_ffr_reserves_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+name VARCHAR(32),
+description VARCHAR(128)
+);
+
+-- Can include timepoints and zones other than the ones in a scenario, as
+-- correct timepoints and zones will be pulled depending on
+-- temporal_scenario_id and reserves_scenario_id
+DROP TABLE IF EXISTS inputs_system_inertia_with_ffr_reserves;
+CREATE TABLE inputs_system_inertia_with_ffr_reserves (
+inertia_with_ffr_reserves_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+stage_id INTEGER,
+timepoint INTEGER,
+inertia_with_ffr_reserves_mw FLOAT,
+PRIMARY KEY (inertia_with_ffr_reserves_scenario_id, inertia_with_ffr_reserves_ba, stage_id,
+timepoint),
+FOREIGN KEY (inertia_with_ffr_reserves_scenario_id) REFERENCES
+subscenarios_system_inertia_with_ffr_reserves (inertia_with_ffr_reserves_scenario_id)
+);
+
+-- The requirement may be specified as percent of load, in which case we also
+-- need to specify which load, i.e. specify a mapping between the reserve BA
+-- and the load zones whose load should be part of the requirement
+-- calculation (mapping should be one-to-many)
+DROP TABLE IF EXISTS inputs_system_inertia_with_ffr_reserves_percent;
+CREATE TABLE inputs_system_inertia_with_ffr_reserves_percent (
+inertia_with_ffr_reserves_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+stage_id INTEGER,
+percent_load_req FLOAT,
+PRIMARY KEY (inertia_with_ffr_reserves_scenario_id, inertia_with_ffr_reserves_ba, stage_id)
+);
+
+DROP TABLE IF EXISTS inputs_system_inertia_with_ffr_reserves_percent_lz_map;
+CREATE TABLE inputs_system_inertia_with_ffr_reserves_percent_lz_map (
+inertia_with_ffr_reserves_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+load_zone VARCHAR(32),
+PRIMARY KEY (inertia_with_ffr_reserves_scenario_id, inertia_with_ffr_reserves_ba, load_zone)
+);
+
+-- Projects can also contribute to the requirement, specified as percent of their
+-- power output in a timepoint or a percentage of their capacity
+-- Note this is additive to the by-timepoint and percent requirements
+DROP TABLE IF EXISTS inputs_system_inertia_with_ffr_reserves_project;
+CREATE TABLE inputs_system_inertia_with_ffr_reserves_project (
+inertia_with_ffr_reserves_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+stage_id INTEGER,
+project VARCHAR(64),
+percent_power_req FLOAT,
+percent_capacity_req FLOAT,
+PRIMARY KEY (inertia_with_ffr_reserves_scenario_id, inertia_with_ffr_reserves_ba, stage_id, project)
+);
+
 -- -- Policy -- --
 
 -- Energy target requirements
@@ -3061,6 +3160,7 @@ of_regulation_down INTEGER,
 of_frequency_response INTEGER,
 of_spinning_reserves INTEGER,
 of_inertia_reserves INTEGER,
+of_inertia_with_ffr_reserves INTEGER,
 of_period_energy_target INTEGER,
 of_horizon_energy_target INTEGER,
 of_carbon_cap INTEGER,
@@ -3083,6 +3183,7 @@ regulation_down_ba_scenario_id INTEGER,
 frequency_response_ba_scenario_id INTEGER,
 spinning_reserves_ba_scenario_id INTEGER,
 inertia_reserves_ba_scenario_id INTEGER,
+inertia_with_ffr_reserves_ba_scenario_id INTEGER,
 energy_target_zone_scenario_id INTEGER,
 carbon_cap_zone_scenario_id INTEGER,
 carbon_tax_zone_scenario_id INTEGER,
@@ -3103,6 +3204,7 @@ project_regulation_down_ba_scenario_id INTEGER,
 project_frequency_response_ba_scenario_id INTEGER,
 project_spinning_reserves_ba_scenario_id INTEGER,
 project_inertia_reserves_ba_scenario_id INTEGER,
+project_inertia_with_ffr_reserves_ba_scenario_id INTEGER,
 project_energy_target_zone_scenario_id INTEGER,
 project_carbon_cap_zone_scenario_id INTEGER,
 project_carbon_tax_zone_scenario_id INTEGER,
@@ -3148,6 +3250,7 @@ regulation_down_scenario_id INTEGER,
 frequency_response_scenario_id INTEGER,
 spinning_reserves_scenario_id INTEGER,
 inertia_reserves_scenario_id INTEGER,
+inertia_with_ffr_reserves_scenario_id INTEGER,
 period_energy_target_scenario_id INTEGER,
 horizon_energy_target_scenario_id INTEGER,
 carbon_cap_target_scenario_id INTEGER,
@@ -3183,6 +3286,8 @@ FOREIGN KEY (spinning_reserves_ba_scenario_id) REFERENCES
     subscenarios_geography_spinning_reserves_bas (spinning_reserves_ba_scenario_id),
 FOREIGN KEY (inertia_reserves_ba_scenario_id) REFERENCES
     subscenarios_geography_inertia_reserves_bas (inertia_reserves_ba_scenario_id),
+FOREIGN KEY (inertia_with_ffr_reserves_ba_scenario_id) REFERENCES
+    subscenarios_geography_inertia_with_ffr_reserves_bas (inertia_with_ffr_reserves_ba_scenario_id),
 FOREIGN KEY (energy_target_zone_scenario_id) REFERENCES
     subscenarios_geography_energy_target_zones (energy_target_zone_scenario_id),
 FOREIGN KEY (carbon_cap_zone_scenario_id) REFERENCES
@@ -3233,6 +3338,9 @@ FOREIGN KEY (project_spinning_reserves_ba_scenario_id) REFERENCES
 FOREIGN KEY (project_inertia_reserves_ba_scenario_id) REFERENCES
     subscenarios_project_inertia_reserves_bas
         (project_inertia_reserves_ba_scenario_id),
+FOREIGN KEY (project_inertia_with_ffr_reserves_ba_scenario_id) REFERENCES
+    subscenarios_project_inertia_with_ffr_reserves_bas
+        (project_inertia_with_ffr_reserves_ba_scenario_id),
 FOREIGN KEY (project_energy_target_zone_scenario_id) REFERENCES
     subscenarios_project_energy_target_zones
         (project_energy_target_zone_scenario_id),
@@ -3346,6 +3454,8 @@ FOREIGN KEY (spinning_reserves_scenario_id) REFERENCES
     subscenarios_system_spinning_reserves (spinning_reserves_scenario_id),
 FOREIGN KEY (inertia_reserves_scenario_id) REFERENCES
     subscenarios_system_inertia_reserves (inertia_reserves_scenario_id),
+FOREIGN KEY (inertia_with_ffr_reserves_scenario_id) REFERENCES
+    subscenarios_system_inertia_with_ffr_reserves (inertia_with_ffr_reserves_scenario_id),
 FOREIGN KEY (frequency_response_scenario_id) REFERENCES
     subscenarios_system_frequency_response (frequency_response_scenario_id),
 FOREIGN KEY (period_energy_target_scenario_id) REFERENCES
@@ -3746,6 +3856,28 @@ number_of_hours_in_timepoint FLOAT,
 spinup_or_lookahead INTEGER,
 load_zone VARCHAR(32),
 inertia_reserves_ba VARCHAR(32),
+energy_target_zone VARCHAR(32),
+carbon_cap_zone VARCHAR(32),
+technology VARCHAR(32),
+reserve_provision_mw FLOAT,
+PRIMARY KEY (scenario_id, project, subproblem_id, stage_id, timepoint)
+);
+
+DROP TABLE IF EXISTS results_project_inertia_with_ffr_reserves;
+CREATE TABLE results_project_inertia_with_ffr_reserves (
+scenario_id INTEGER,
+project VARCHAR(64),
+period INTEGER,
+subproblem_id INTEGER,
+stage_id INTEGER,
+balancing_type_project VARCHAR(64),
+horizon INTEGER,
+timepoint INTEGER,
+timepoint_weight FLOAT,
+number_of_hours_in_timepoint FLOAT,
+spinup_or_lookahead INTEGER,
+load_zone VARCHAR(32),
+inertia_with_ffr_reserves_ba VARCHAR(32),
 energy_target_zone VARCHAR(32),
 carbon_cap_zone VARCHAR(32),
 technology VARCHAR(32),
@@ -4412,6 +4544,25 @@ marginal_price_per_mw FLOAT,
 PRIMARY KEY (scenario_id, inertia_reserves_ba, subproblem_id, stage_id, timepoint)
 );
 
+DROP TABLE IF EXISTS results_system_inertia_with_ffr_reserves_balance;
+CREATE TABLE results_system_inertia_with_ffr_reserves_balance (
+scenario_id INTEGER,
+inertia_with_ffr_reserves_ba VARCHAR(32),
+period INTEGER,
+subproblem_id INTEGER,
+stage_id INTEGER,
+timepoint INTEGER,
+discount_factor FLOAT,
+number_years_represented FLOAT,
+timepoint_weight FLOAT,
+number_of_hours_in_timepoint FLOAT,
+spinup_or_lookahead INTEGER,
+violation_mw FLOAT,
+dual FLOAT,
+marginal_price_per_mw FLOAT,
+PRIMARY KEY (scenario_id, inertia_with_ffr_reserves_ba, subproblem_id, stage_id, timepoint)
+);
+
 -- Carbon emissions
 DROP TABLE IF EXISTS results_system_carbon_emissions;
 CREATE TABLE results_system_carbon_emissions (
@@ -4622,6 +4773,7 @@ Regulation_Down_Penalty_Costs Float,
 Regulation_Up_Penalty_Costs Float,
 Spinning_Reserves_Penalty_Costs Float,
 inertia_Reserves_Penalty_Costs Float,
+inertia_with_ffr_Reserves_Penalty_Costs Float,
 Total_PRM_Shortage_Penalty_Costs Float,
 Total_Local_Capacity_Shortage_Penalty_Costs Float,
 Total_Carbon_Cap_Balance_Penalty_Costs Float,
@@ -4695,6 +4847,8 @@ CASE WHEN of_spinning_reserves THEN 'yes' ELSE 'no' END
     AS feature_spinning_reserves,
 CASE WHEN of_inertia_reserves THEN 'yes' ELSE 'no' END
     AS feature_inertia_reserves,
+CASE WHEN of_inertia_with_ffr_reserves THEN 'yes' ELSE 'no' END
+    AS feature_inertia_with_ffr_reserves,
 CASE WHEN of_period_energy_target THEN 'yes' ELSE 'no' END AS
     feature_period_energy_target,
 CASE WHEN of_carbon_cap THEN 'yes' ELSE 'no' END
@@ -4716,6 +4870,7 @@ subscenarios_geography_regulation_up_bas.name AS geography_reg_up_bas,
 subscenarios_geography_regulation_down_bas.name AS geography_reg_down_bas,
 subscenarios_geography_spinning_reserves_bas.name AS geography_spin_bas,
 subscenarios_geography_inertia_reserves_bas.name AS geography_iner_bas,
+subscenarios_geography_inertia_with_ffr_reserves_bas.name AS geography_iner_ffr_bas,
 subscenarios_geography_frequency_response_bas.name AS geography_freq_resp_bas,
 subscenarios_geography_energy_target_zones.name AS geography_energy_target_areas,
 subscenarios_geography_carbon_cap_zones.name AS carbon_cap_areas,
@@ -4733,6 +4888,7 @@ subscenarios_project_regulation_up_bas.name AS project_reg_up_bas,
 subscenarios_project_regulation_down_bas.name AS project_reg_down_bas,
 subscenarios_project_spinning_reserves_bas.name AS project_spin_bas,
 subscenarios_project_inertia_reserves_bas.name AS project_iner_bas,
+subscenarios_project_inertia_with_ffr_reserves_bas.name AS project_iner_ffr_bas,
 subscenarios_project_frequency_response_bas.name AS project_freq_resp_bas,
 subscenarios_project_energy_target_zones.name AS project_energy_target_areas,
 subscenarios_project_carbon_cap_zones.name AS project_carbon_cap_areas,
@@ -4770,6 +4926,7 @@ subscenarios_system_regulation_up.name AS regulation_up_profile,
 subscenarios_system_regulation_down.name AS regulation_down_profile,
 subscenarios_system_spinning_reserves.name AS spinning_reserves_profile,
 subscenarios_system_inertia_reserves.name AS inertia_reserves_profile,
+subscenarios_system_inertia_with_ffr_reserves.name AS inertia_with_ffr_reserves_profile,
 subscenarios_system_frequency_response.name AS frequency_response_profile,
 subscenarios_system_period_energy_targets.name AS period_energy_target,
 subscenarios_system_carbon_cap_targets.name AS carbon_cap,
@@ -4796,6 +4953,8 @@ LEFT JOIN subscenarios_geography_spinning_reserves_bas
     USING (spinning_reserves_ba_scenario_id)
 LEFT JOIN subscenarios_geography_inertia_reserves_bas
     USING (inertia_reserves_ba_scenario_id)
+LEFT JOIN subscenarios_geography_inertia_with_ffr_reserves_bas
+    USING (inertia_with_ffr_reserves_ba_scenario_id)
 LEFT JOIN subscenarios_geography_frequency_response_bas
     USING (frequency_response_ba_scenario_id)
 LEFT JOIN subscenarios_geography_energy_target_zones USING (energy_target_zone_scenario_id)
@@ -4825,6 +4984,8 @@ LEFT JOIN subscenarios_project_spinning_reserves_bas
     USING (project_spinning_reserves_ba_scenario_id)
 LEFT JOIN subscenarios_project_inertia_reserves_bas
     USING (project_inertia_reserves_ba_scenario_id)
+LEFT JOIN subscenarios_project_inertia_with_ffr_reserves_bas
+    USING (project_inertia_with_ffr_reserves_ba_scenario_id)
 LEFT JOIN subscenarios_project_frequency_response_bas
     USING (project_frequency_response_ba_scenario_id)
 LEFT JOIN subscenarios_project_energy_target_zones
@@ -4883,6 +5044,8 @@ LEFT JOIN subscenarios_system_spinning_reserves
     USING (spinning_reserves_scenario_id)
 LEFT JOIN subscenarios_system_inertia_reserves
     USING (inertia_reserves_scenario_id)
+LEFT JOIN subscenarios_system_inertia_with_ffr_reserves
+    USING (inertia_with_ffr_reserves_scenario_id)
 LEFT JOIN subscenarios_system_frequency_response
     USING (frequency_response_scenario_id)
 LEFT JOIN subscenarios_system_period_energy_targets USING
