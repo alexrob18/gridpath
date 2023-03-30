@@ -16,6 +16,7 @@ regulation_up,1,Regulation Up
 regulation_down,1,Regulation Down
 spinning_reserves,1,Spinning Reserves
 inertia_reserves,1,Inertia Reserves
+inertia_with_ffr_reserves,1,Inertia with FFR Reserves
 frequency_response,1,Frequency Response
 energy_target,1,Energy Targets
 carbon_cap,1,Carbon Cap
