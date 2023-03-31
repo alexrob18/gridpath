@@ -33,7 +33,7 @@ def add_model_components(m, d, scenario_directory, subproblem, stage):
         d=d,
         reserve_zone_set="INERTIA_WITH_FFR_RESERVES_ZONES",
         reserve_requirement_tmp_param="inertia_with_ffr_reserves_requirement_mw",
-        reserve_requirement_percent_param="iner_per_req",
+        reserve_requirement_percent_param="iner_ffr_per_req",
         reserve_zone_load_zone_set="INER_FFR_BA_LZ",
         ba_prj_req_contribution_set="INER_FFR_BA_PRJ_CONTRIBUTION",
         prj_power_param="iner_ffr_prj_pwr_contribution",
