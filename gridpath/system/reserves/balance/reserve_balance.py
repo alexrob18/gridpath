@@ -265,6 +265,8 @@ def generic_import_results_to_database(
         "frequency_response": "Meet_Frequency_Response_Constraint.csv",
         "frequency_response_partial": "Meet_Frequency_Response_Partial_Constraint.csv",
         "spinning_reserves": "Meet_Spinning_Reserves_Constraint.csv",
+        "inertia_reserves": "Meet_Inertia_Reserves_Constraint.csv",
+        "inertia_with_ffr_reserves": "Meet_Inertia_with_ffr_Reserves_Constraint.csv",
     }
 
     duals_results = []
