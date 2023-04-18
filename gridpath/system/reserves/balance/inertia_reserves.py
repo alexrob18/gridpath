@@ -15,6 +15,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+from pyomo.environ import Var, Constraint, NonNegativeReals, Expression, value
 from .reserve_balance import (
     generic_add_model_components,
     generic_export_results,
@@ -31,16 +32,46 @@ def add_model_components(m, d, scenario_directory, subproblem, stage):
     :return:
     """
 
-    generic_add_model_components(
-        m=m,
-        d=d,
-        reserve_zone_set="INERTIA_RESERVES_ZONES",
-        reserve_violation_variable="Inertia_Reserves_Violation_MW",
-        reserve_violation_expression="Inertia_Reserves_Violation_MW_Expression",
-        reserve_violation_allowed_param="inertia_reserves_allow_violation",
-        reserve_requirement_expression="Iner_Requirement",
-        total_reserve_provision_expression="Total_Inertia_Reserves_Provision_MW",
-        meet_reserve_constraint="Meet_Inertia_Reserves_Constraint",
+    # Penalty for violation
+    setattr(
+        m,
+        "Inertia_Reserves_Violation_MW",
+        Var(getattr(m, "INERTIA_RESERVES_ZONES"), m.TMPS, within=NonNegativeReals),
+    )
+
+    def violation_expression_rule(mod, ba, tmp):
+        """
+
+        :param mod:
+        :param ba:
+        :param tmp:
+        :return:
+        """
+        return (
+                getattr(mod, "inertia_reserves_allow_violation")[ba]
+                * getattr(mod, "Inertia_Reserves_Violation_MW")[ba, tmp]
+        )
+
+    setattr(
+        m,
+        "Inertia_Reserves_Violation_MW_Expression",
+        Expression(
+            getattr(m, "INERTIA_RESERVES_ZONES"), m.TMPS, rule=violation_expression_rule
+        ),
+    )
+
+    # Reserve constraints
+    def meet_reserve_rule(mod, ba, tmp):
+        return (
+                getattr(mod, "Total_Inertia_Reserves_Provision_MW")[ba, tmp]
+                + getattr(mod, "Inertia_Reserves_Violation_MW_Expression")[ba, tmp]
+                >= getattr(mod, "Iner_Requirement")[ba, tmp]
+        )
+
+    setattr(
+        m,
+        "Meet_Inertia_Reserves_Constraint",
+        Constraint(getattr(m, "INERTIA_RESERVES_ZONES"), m.TMPS, rule=meet_reserve_rule),
     )
 
 
