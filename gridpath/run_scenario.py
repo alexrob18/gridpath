@@ -192,6 +192,7 @@ def run_optimization_for_subproblem_stage(
     stage_directory,
     multi_stage,
     parsed_arguments,
+    lic_queue_and_worker_timmer=None
 ):
     """
     :param scenario_directory: the main scenario directory
@@ -386,10 +387,16 @@ def run_optimization_for_subproblem_stage(
                 print("Problem file written to {}".format(prob_sol_files_directory))
                 sys.exit()
             else:
+
+                if lic_queue_and_worker_timmer is not None:
+                    lic_queue_and_worker_timmer[0].put(lic_queue_and_worker_timmer[2])
+                    lic_queue_and_worker_timmer[2][1].wait()
                 solved_instance, results = solve_problem(
                     parsed_arguments=parsed_arguments,
                     instance=instance,
                 )
+                if lic_queue_and_worker_timmer is not None:
+                    lic_queue_and_worker_timmer[3]("license")
 
         # Save the scenario results to disk
         save_results(
@@ -436,6 +443,7 @@ def run_optimization_for_subproblem(
     multi_stage,
     parsed_arguments,
     objective_values,
+    lic_queue_and_worker_timmer=None
 ):
     """
     Check if there are stages in the subproblem; if not solve subproblem;
@@ -461,6 +469,7 @@ def run_optimization_for_subproblem(
             stage_directory,
             multi_stage,
             parsed_arguments,
+            lic_queue_and_worker_timmer=lic_queue_and_worker_timmer
         )
         # Force garbage collection after each stage to release file descriptors
         gc.collect()
@@ -532,7 +541,8 @@ def solve_sequentially(
     scenario_directory_structure,
     scenario_directory,
     scenario_structure,
-    parsed_arguments,
+    parsed_arguments,,
+    lic_queue_and_worker_timmer=None
 ):
     # Create dictionary with which we'll keep track of subproblem/stage
     # objective function values
@@ -600,6 +610,7 @@ def solve_sequentially(
                         multi_stage=scenario_structure.STAGE_FLAG,
                         parsed_arguments=parsed_arguments,
                         objective_values=objective_values,
+                        lic_queue_and_worker_timmer=lic_queue_and_worker_timmer
                     )
                     # Force garbage collection after each subproblem to release file descriptors
                     gc.collect()
@@ -613,6 +624,7 @@ def run_scenario(
     scenario_directory,
     scenario_structure,
     parsed_arguments,
+    lic_queue_and_worker_timmer=None
 ):
     """
     Check the scenario structure, iterate over all subproblems if they
@@ -658,8 +670,11 @@ def run_scenario(
             scenario_directory=scenario_directory,
             scenario_structure=scenario_structure,
             parsed_arguments=parsed_arguments,
+            lic_queue_and_worker_timmer=lic_queue_and_worker_timmer
         )
 
+        if len(objective_values.keys()) == 1:
+            objective_values = objective_values[list(objective_values.keys())[0]]
         return objective_values
 
     # If parallelization is requested, proceed with some checks
@@ -1599,7 +1614,8 @@ def parse_arguments(args):
     return parsed_arguments
 
 
-def main(args=None):
+def main(args=None,
+        lic_queue_and_worker_timmer=None):
     """
     This is the 'main' method that runs a scenario. It takes in and parses the
     script arguments, determines the scenario structure (i.e. whether it is a
@@ -1635,6 +1651,7 @@ def main(args=None):
         scenario_directory=scenario_directory,
         scenario_structure=scenario_structure,
         parsed_arguments=parsed_args,
+        lic_queue_and_worker_timmer=lic_queue_and_worker_timmer,
     )
 
     # Return the objective function values (used in testing)

@@ -255,7 +255,7 @@ def remove_from_queue_if_in_queue(db_path, scenario, queue_order_id):
 #   to run_end_to_end.py, even if the parsing fails at one of the scripts
 #   being called here (e.g. run_scenario.py), while the listed arguments refer
 #   to the parser used when the script fails
-def main(args=None):
+def main(args=None, lic_queue_and_worker_timmer=None):
     """
 
     :param args:
@@ -267,8 +267,8 @@ def main(args=None):
     start_time = datetime.datetime.now()
 
     # Signal-handling directives
-    signal.signal(signal.SIGTERM, sigterm_handler)
-    signal.signal(signal.SIGINT, sigint_handler)
+    # signal.signal(signal.SIGTERM, sigterm_handler)
+    # signal.signal(signal.SIGINT, sigint_handler)
 
     if args is None:
         args = sys.argv[1:]
@@ -362,6 +362,10 @@ def main(args=None):
         skip_import_results = False
         skip_process_results = False
 
+    if lic_queue_and_worker_timmer is not None:
+        lic_queue_and_worker_timmer[1].put(lic_queue_and_worker_timmer[2])
+        lic_queue_and_worker_timmer[2][1].wait()
+
     # Go through the steps if user has not requested to skip them
     if not skip_get_inputs and not parsed_args.skip_get_inputs:
         try:
@@ -381,12 +385,16 @@ def main(args=None):
             )
             sys.exit(1)
 
+    if lic_queue_and_worker_timmer is not None:
+        lic_queue_and_worker_timmer[3]("db_worker")
+
     if not skip_run_scenario and not parsed_args.skip_run_scenario:
         try:
             # make sure run_scenario.py gets the required --scenario argument
             run_scenario_args = args + ["--scenario", scenario]
             expected_objective_values = run_scenario.main(
                 args=run_scenario_args,
+                lic_queue_and_worker_timmer=lic_queue_and_worker_timmer,
             )
         except Exception as e:
             logging.exception(e)
@@ -405,6 +413,10 @@ def main(args=None):
             sys.exit(1)
     else:
         expected_objective_values = None
+
+    if lic_queue_and_worker_timmer is not None:
+        lic_queue_and_worker_timmer[1].put(lic_queue_and_worker_timmer[2])
+        lic_queue_and_worker_timmer[2][1].wait()
 
     if not skip_import_results and not parsed_args.skip_import_results:
         try:
@@ -450,6 +462,10 @@ def main(args=None):
         process_id=process_id,
         run_status_id=2,
     )
+
+    if lic_queue_and_worker_timmer is not None:
+        lic_queue_and_worker_timmer[3]("db_worker")
+
     # TODO: should the process ID be set back to NULL?
     if not parsed_args.quiet:
         print("Done. Run finished on {}.".format(end_time))
