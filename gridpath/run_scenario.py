@@ -541,7 +541,7 @@ def solve_sequentially(
     scenario_directory_structure,
     scenario_directory,
     scenario_structure,
-    parsed_arguments,,
+    parsed_arguments,
     lic_queue_and_worker_timmer=None
 ):
     # Create dictionary with which we'll keep track of subproblem/stage
