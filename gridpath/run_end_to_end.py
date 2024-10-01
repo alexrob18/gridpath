@@ -267,8 +267,8 @@ def main(args=None, lic_queue_and_worker_timmer=None):
     start_time = datetime.datetime.now()
 
     # Signal-handling directives
-    # signal.signal(signal.SIGTERM, sigterm_handler)
-    # signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+    signal.signal(signal.SIGINT, sigint_handler)
 
     if args is None:
         args = sys.argv[1:]
@@ -362,10 +362,6 @@ def main(args=None, lic_queue_and_worker_timmer=None):
         skip_import_results = False
         skip_process_results = False
 
-    if lic_queue_and_worker_timmer is not None:
-        lic_queue_and_worker_timmer[1].put(lic_queue_and_worker_timmer[2])
-        lic_queue_and_worker_timmer[2][1].wait()
-
     # Go through the steps if user has not requested to skip them
     if not skip_get_inputs and not parsed_args.skip_get_inputs:
         try:
@@ -384,9 +380,6 @@ def main(args=None, lic_queue_and_worker_timmer=None):
                 "scenario {}. End time: {}.".format(scenario, end_time)
             )
             sys.exit(1)
-
-    if lic_queue_and_worker_timmer is not None:
-        lic_queue_and_worker_timmer[3]("db_worker")
 
     if not skip_run_scenario and not parsed_args.skip_run_scenario:
         try:
@@ -415,44 +408,79 @@ def main(args=None, lic_queue_and_worker_timmer=None):
         expected_objective_values = None
 
     if lic_queue_and_worker_timmer is not None:
-        lic_queue_and_worker_timmer[1].put(lic_queue_and_worker_timmer[2])
-        lic_queue_and_worker_timmer[2][1].wait()
+        print("waiting for DB_reader")
+        with lic_queue_and_worker_timmer[1]:
+            if not skip_import_results and not parsed_args.skip_import_results:
+                try:
+                    import_scenario_results.main(args=args)
+                except Exception as e:
+                    logging.exception(e)
+                    end_time = update_db_for_run_end(
+                        db_path=db_path,
+                        scenario=scenario,
+                        queue_order_id=queue_order_id,
+                        process_id=process_id,
+                        run_status_id=3,
+                    )
+                    print(
+                        "Error encountered when importing results for "
+                        "scenario {}. End time: {}.".format(scenario, end_time)
+                    )
+                    sys.exit(1)
 
-    if not skip_import_results and not parsed_args.skip_import_results:
-        try:
-            import_scenario_results.main(args=args)
-        except Exception as e:
-            logging.exception(e)
-            end_time = update_db_for_run_end(
-                db_path=db_path,
-                scenario=scenario,
-                queue_order_id=queue_order_id,
-                process_id=process_id,
-                run_status_id=3,
-            )
-            print(
-                "Error encountered when importing results for "
-                "scenario {}. End time: {}.".format(scenario, end_time)
-            )
-            sys.exit(1)
+            if not skip_process_results and not parsed_args.skip_process_results:
+                try:
+                    process_results.main(args=args)
+                except Exception as e:
+                    logging.exception(e)
+                    end_time = update_db_for_run_end(
+                        db_path=db_path,
+                        scenario=scenario,
+                        queue_order_id=queue_order_id,
+                        process_id=process_id,
+                        run_status_id=3,
+                    )
+                    print(
+                        "Error encountered when importing results for "
+                        "scenario {}. End time: {}.".format(scenario, end_time)
+                    )
+                    sys.exit(1)
+    else:
+        if not skip_import_results and not parsed_args.skip_import_results:
+            try:
+                import_scenario_results.main(args=args)
+            except Exception as e:
+                logging.exception(e)
+                end_time = update_db_for_run_end(
+                    db_path=db_path,
+                    scenario=scenario,
+                    queue_order_id=queue_order_id,
+                    process_id=process_id,
+                    run_status_id=3,
+                )
+                print(
+                    "Error encountered when importing results for "
+                    "scenario {}. End time: {}.".format(scenario, end_time)
+                )
+                sys.exit(1)
 
-    if not skip_process_results and not parsed_args.skip_process_results:
-        try:
-            process_results.main(args=args)
-        except Exception as e:
-            logging.exception(e)
-            end_time = update_db_for_run_end(
-                db_path=db_path,
-                scenario=scenario,
-                queue_order_id=queue_order_id,
-                process_id=process_id,
-                run_status_id=3,
-            )
-            print(
-                "Error encountered when importing results for "
-                "scenario {}. End time: {}.".format(scenario, end_time)
-            )
-            sys.exit(1)
+        if not skip_process_results and not parsed_args.skip_process_results:
+            try:
+                process_results.main(args=args)
+            except Exception as e:
+                logging.exception(e)
+                end_time = update_db_for_run_end(
+                    db_path=db_path,
+                    scenario=scenario,
+                    queue_order_id=queue_order_id,
+                    process_id=process_id,
+                    run_status_id=3,
+                )
+                print(
+                    "Error encountered when importing results for "
+                    "scenario {}. End time: {}.".format(scenario, end_time)
+                )
+                sys.exit(1)
 
     # If we make it here, mark run as complete and update run end time
     end_time = update_db_for_run_end(
@@ -462,9 +490,6 @@ def main(args=None, lic_queue_and_worker_timmer=None):
         process_id=process_id,
         run_status_id=2,
     )
-
-    if lic_queue_and_worker_timmer is not None:
-        lic_queue_and_worker_timmer[3]("db_worker")
 
     # TODO: should the process ID be set back to NULL?
     if not parsed_args.quiet:
