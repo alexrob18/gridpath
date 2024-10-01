@@ -367,14 +367,17 @@ def run_optimization_for_subproblem_stage(
             else:
 
                 if lic_queue_and_worker_timmer is not None:
-                    lic_queue_and_worker_timmer[0].put(lic_queue_and_worker_timmer[2])
-                    lic_queue_and_worker_timmer[2][1].wait()
-                solved_instance, results = solve_problem(
-                    parsed_arguments=parsed_arguments,
-                    instance=instance,
-                )
-                if lic_queue_and_worker_timmer is not None:
-                    lic_queue_and_worker_timmer[3]("license")
+                    print("waiting for license")
+                    with lic_queue_and_worker_timmer[0]:
+                        solved_instance, results = solve_problem(
+                            parsed_arguments=parsed_arguments,
+                            instance=instance,
+                        )
+                else:
+                    solved_instance, results = solve_problem(
+                        parsed_arguments=parsed_arguments,
+                        instance=instance,
+                    )
 
         # Save the scenario results to disk
         save_results(
