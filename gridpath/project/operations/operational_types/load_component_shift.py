@@ -250,11 +250,13 @@ def add_model_components(
         """
         return (
             sum(
+                # The load that can be shifted is propotional to the investement
                 mod.component_static_load_mw[
                     mod.load_zone[prj],
                     tmp,
                     mod.load_component_shift_linked_load_component[prj],
                 ]
+                * mod.Load_Component_Shift_Fraction_Invested[prj, mod.period[tmp]]
                 * mod.hrs_in_tmp[tmp]
                 * mod.tmp_weight[tmp]
                 for tmp in mod.TMPS_BY_BLN_TYPE_HRZ[bt, hrz]
@@ -290,6 +292,16 @@ def add_model_components(
 
     m.Load_Component_Shift_Max_Demand_Constraint = Constraint(
         m.LOAD_COMPONENT_SHIFT_PRJS_OPR_TMPS, rule=max_demand_rule
+    )
+
+    def max_power_rule(mod, prj, tmp):
+        return (
+            mod.Load_Component_Shift_Add_Load_MW[prj, tmp]
+            <= mod.Capacity_MW[prj, mod.period[tmp]]
+        )
+
+    m.Load_Component_Shift_Max_Power_Constraint = Constraint(
+        m.LOAD_COMPONENT_SHIFT_PRJS_OPR_TMPS, rule=max_power_rule
     )
 
     # TODO: remove this constraint once input validation is in place that
@@ -370,11 +382,14 @@ def power_provision_rule(mod, prj, tmp):
 
     return (
         -mod.Load_Component_Shift_Add_Load_MW[prj, tmp]
-        + mod.component_static_load_mw[
-            mod.load_zone[prj],
-            tmp,
-            mod.load_component_shift_linked_load_component[prj],
-        ]
+        + (
+            mod.component_static_load_mw[
+                mod.load_zone[prj],
+                tmp,
+                mod.load_component_shift_linked_load_component[prj],
+            ]
+            * mod.Load_Component_Shift_Fraction_Invested[prj, mod.period[tmp]]
+        )
     )
 
 
