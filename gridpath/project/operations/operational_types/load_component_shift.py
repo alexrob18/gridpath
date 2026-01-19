@@ -49,6 +49,7 @@ from gridpath.project.operations.operational_types.common_functions import (
     BT_HRZ_INDEX_QUERY_PARAMS,
 )
 
+Infinity = float("inf")
 
 def add_model_components(
     m,
@@ -138,11 +139,11 @@ def add_model_components(
     )
 
     m.load_component_shift_min_load_mw = Param(
-        m.LOAD_COMPONENT_SHIFT_PRJS_BT_HRZS, within=NonNegativeReals
+        m.LOAD_COMPONENT_SHIFT_PRJS_BT_HRZS, within=NonNegativeReals, default=0
     )
 
     m.load_component_shift_max_load_mw = Param(
-        m.LOAD_COMPONENT_SHIFT_PRJS_BT_HRZS, within=NonNegativeReals
+        m.LOAD_COMPONENT_SHIFT_PRJS_BT_HRZS, within=NonNegativeReals, default=Infinity
     )
 
     # Derived params
@@ -167,7 +168,11 @@ def add_model_components(
         for _prj, bt, hrz in mod.LOAD_COMPONENT_SHIFT_PRJS_BT_HRZS:
             if _prj == prj and tmp in mod.TMPS_BY_BLN_TYPE_HRZ[bt, hrz]:
                 min_vals.append(mod.load_component_shift_min_load_mw[_prj, bt, hrz])
-                max_vals.append(mod.load_component_shift_max_load_mw[_prj, bt, hrz])
+                if mod.load_component_shift_max_load_mw[_prj, bt, hrz] == Infinity:
+                    max_vals.append(mod.load_component_shift_max_load_mw[_prj, bt, hrz])
+                else:
+                    max_vals.append(mod.Capacity_MW[prj, mod.period[tmp]])
+
 
         if len(min_vals) > 1 or len(max_vals) > 1:
             raise ValueError(
@@ -603,6 +608,7 @@ def write_model_inputs(
         stage,
         fname,
         data,
+        replace_nulls=True,
     )
 
 
