@@ -53,9 +53,9 @@ def add_model_components(
         :return:
         """
         return sum(
-            mod.PRM_Simple_Contribution_MW[g, p]
-            for g in mod.PRM_PROJECTS_BY_PRM_ZONE[z]
-            if (g, p) in mod.PRM_PRJ_OPR_PRDS
+            mod.PRM_Simple_Contribution_MW[g, z, p]
+            for (g, prm_z) in mod.PRM_PROJECTS_BY_PRM_ZONE[z]
+            if (g, z, p) in mod.PRM_PRJ_OPR_PRDS
         )
 
     m.Total_PRM_Simple_Contribution_MW = Expression(

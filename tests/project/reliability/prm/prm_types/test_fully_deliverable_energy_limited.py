@@ -109,29 +109,39 @@ class TestProjPRMTypeFullyDeliverable(unittest.TestCase):
         instance = m.create_instance(data)
 
         # Set: FDDL_PRM_PROJECTS
-        expected_projects = sorted(["Battery", "Battery_Binary", "Battery_Specified"])
+        expected_projects = sorted([
+            ("Battery", 'PRM_Zone1'),
+            ("Battery_Binary", 'PRM_Zone1'),
+            ("Battery_Specified", 'PRM_Zone1')
+        ])
         actual_projects = sorted([prj for prj in instance.FDDL_PRM_PROJECTS])
         self.assertListEqual(expected_projects, actual_projects)
 
         # Set: FDDL_PRM_PRJ_OPR_PRDS
         expected_proj_period_set = sorted(
             [
-                ("Battery", 2020),
-                ("Battery", 2030),
-                ("Battery_Binary", 2020),
-                ("Battery_Binary", 2030),
-                ("Battery_Specified", 2020),
+                ("Battery", 'PRM_Zone1', 2020),
+                ("Battery", 'PRM_Zone1', 2030),
+                ("Battery_Binary", 'PRM_Zone1', 2020),
+                ("Battery_Binary", 'PRM_Zone1', 2030),
+                ("Battery_Specified", 'PRM_Zone1', 2020),
             ]
         )
         actual_proj_period_set = sorted(
-            [(prj, period) for (prj, period) in instance.FDDL_PRM_PRJ_OPR_PRDS]
+            [(prj, prm_zone, period) for (prj, prm_zone, period) in instance.FDDL_PRM_PRJ_OPR_PRDS]
         )
 
         self.assertListEqual(expected_proj_period_set, actual_proj_period_set)
 
         # Param: min_duration_for_full_capacity_credit
         expected_dur = OrderedDict(
-            sorted({"Battery": 4, "Battery_Binary": 4, "Battery_Specified": 4}.items())
+            sorted(
+                {
+                    ("Battery", 'PRM_Zone1'): 4,
+                    ("Battery_Binary", 'PRM_Zone1'): 4,
+                    ("Battery_Specified", 'PRM_Zone1'): 4
+                }.items()
+            )
         )
         actual_dur = OrderedDict(
             sorted(

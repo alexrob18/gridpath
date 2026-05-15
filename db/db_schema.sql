@@ -3820,7 +3820,7 @@ CREATE TABLE inputs_project_prm_zones
     project_prm_zone_scenario_id INTEGER,
     project                      VARCHAR(64),
     prm_zone                     VARCHAR(32),
-    PRIMARY KEY (project_prm_zone_scenario_id, project),
+    PRIMARY KEY (project_prm_zone_scenario_id, project, prm_zone),
     FOREIGN KEY (project_prm_zone_scenario_id) REFERENCES
         subscenarios_project_prm_zones (project_prm_zone_scenario_id)
 );
@@ -3911,6 +3911,7 @@ CREATE TABLE inputs_project_elcc_chars
 (
     project_elcc_chars_scenario_id              INTEGER,
     project                                     VARCHAR(64),
+    prm_zone                                    VARCHAR(64),
     prm_type                                    VARCHAR(32), -- to model 'energy_only" PRM type, select energy_only feature
     min_duration_for_full_capacity_credit_hours FLOAT,
     project_elcc_simple_scenario_id             INTEGER,
@@ -3918,7 +3919,7 @@ CREATE TABLE inputs_project_elcc_chars
         project_deliverability_scenario_id IS NULL OR
         prm_type = 'energy_only_allowed'
         ),                                                   -- can be NULL; otherwise ensure projects with group are energy_only_allowed
-    PRIMARY KEY (project_elcc_chars_scenario_id, project),
+    PRIMARY KEY (project_elcc_chars_scenario_id, project, prm_zone),
     FOREIGN KEY (prm_type) REFERENCES mod_prm_types (prm_type),
     FOREIGN KEY (project_elcc_chars_scenario_id) REFERENCES
         subscenarios_project_elcc_chars (project_elcc_chars_scenario_id)
@@ -4012,18 +4013,19 @@ CREATE TABLE inputs_system_prm_zone_elcc_surface_prm_load
         subscenarios_system_prm_zone_elcc_surface (elcc_surface_scenario_id)
 );
 
--- ELCC coefficients by project, period, and facet
+-- ELCC coefficients by project, prm_zone, period, and facet
 DROP TABLE IF EXISTS inputs_project_elcc_surface;
 CREATE TABLE inputs_project_elcc_surface
 (
     elcc_surface_scenario_id INTEGER,
     elcc_surface_name        VARCHAR(32),
     project                  VARCHAR(64),
+    prm_zone                 VARCHAR(64),
     period                   INTEGER,
     facet                    INTEGER,
     elcc_surface_coefficient FLOAT,
-    PRIMARY KEY (elcc_surface_scenario_id, elcc_surface_name, project, period,
-                 facet)
+    PRIMARY KEY (elcc_surface_scenario_id, elcc_surface_name, project, prm_zone,
+                 period, facet)
 );
 
 -- Project cap factors for the ELCC surface
@@ -4033,8 +4035,9 @@ CREATE TABLE inputs_project_elcc_surface_cap_factors
     elcc_surface_scenario_id INTEGER,
     elcc_surface_name        VARCHAR(32),
     project                  VARCHAR(64),
+    prm_zone                 VARCHAR(64),
     elcc_surface_cap_factor  FLOAT,
-    PRIMARY KEY (elcc_surface_scenario_id, elcc_surface_name, project)
+    PRIMARY KEY (elcc_surface_scenario_id, elcc_surface_name, project, prm_zone)
 );
 
 -- Deliverability parameters

@@ -51,10 +51,10 @@ def add_model_components(
     """
 
     m.FDDL_PRM_PROJECTS = Set(
-        within=m.PRM_PROJECTS,
+        within=m.PRM_PROJECTS_PRM_ZONES,
         initialize=lambda mod: subset_init_by_param_value(
             mod=mod,
-            set_name="PRM_PROJECTS",
+            set_name="PRM_PROJECTS_PRM_ZONES",
             param_name="prm_type",
             param_value="fully_deliverable_energy_limited",
         ),
@@ -63,14 +63,13 @@ def add_model_components(
     # Will limit this to storage project operational periods in addition to
     # PRM project operational periods
     m.FDDL_PRM_PRJ_OPR_PRDS = Set(
-        dimen=2,
-        within=m.PRM_PRJ_OPR_PRDS & m.PRJ_OPR_PRDS,
-        initialize=lambda mod: subset_init_by_set_membership(
-            mod=mod,
-            superset="PRM_PRJ_OPR_PRDS",
-            index=0,
-            membership_set=mod.FDDL_PRM_PROJECTS,
-        ),
+        dimen=3,
+        within=m.PRM_PRJ_OPR_PRDS,
+        initialize=lambda mod: [
+            (prj, prm_z, p)
+            for (prj, prm_z, p) in mod.PRM_PRJ_OPR_PRDS
+            if (prj, prm_z) in mod.FDDL_PRM_PROJECTS
+        ],
     )
 
     m.min_duration_for_full_capacity_credit = Param(
@@ -81,16 +80,17 @@ def add_model_components(
         m.FDDL_PRM_PRJ_OPR_PRDS, within=NonNegativeReals
     )
 
-    def eligible_capacity_is_less_than_total_capacity_rule(mod, g, p):
+    def eligible_capacity_is_less_than_total_capacity_rule(mod, g, z, p):
         """
         The ELCC capacity can't exceed the total project capacity
         :param mod:
         :param g:
+        :param z:
         :param p:
         :return:
         """
         return (
-            mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, p]
+            mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, z, p]
             <= mod.Capacity_MW[g, p]
         )
 
@@ -98,18 +98,19 @@ def add_model_components(
         m.FDDL_PRM_PRJ_OPR_PRDS, rule=eligible_capacity_is_less_than_total_capacity_rule
     )
 
-    def eligible_capacity_duration_derate_rule(mod, g, p):
+    def eligible_capacity_duration_derate_rule(mod, g, z, p):
         """
         The ELCC capacity can't exceed the total project capacity
         :param mod:
         :param g:
+        :param z:
         :param p:
         :return:
         """
         return (
-            mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, p]
+            mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, z, p]
             <= mod.Energy_Storage_Capacity_MWh[g, p]
-            / mod.min_duration_for_full_capacity_credit[g]
+            / mod.min_duration_for_full_capacity_credit[g, z]
         )
 
     m.FDDL_Project_Capacity_Credit_Duration_Derate_Constraint = Constraint(
@@ -117,7 +118,7 @@ def add_model_components(
     )
 
 
-def elcc_eligible_capacity_rule(mod, g, p):
+def elcc_eligible_capacity_rule(mod, g, z, p):
     """
 
     :param mod:
@@ -125,7 +126,7 @@ def elcc_eligible_capacity_rule(mod, g, p):
     :param p:
     :return:
     """
-    return mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, p]
+    return mod.FDDL_Project_Capacity_Credit_Eligible_Capacity_MW[g, z, p]
 
 
 def load_model_data(
@@ -157,9 +158,13 @@ def load_model_data(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
-        select=("project", "minimum_duration_for_full_capacity_credit_hours"),
+        select=(
+            "project",
+            "prm_zone",
+            "minimum_duration_for_full_capacity_credit_hours",
+        ),
         param=m.min_duration_for_full_capacity_credit,
     )
 
@@ -315,7 +320,7 @@ def write_model_inputs(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         "r",
     ) as projects_file_in:
@@ -350,7 +355,7 @@ def write_model_inputs(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         "w",
         newline="",

@@ -1,0 +1,7 @@
+﻿elcc_surface_name,project,prm_zone,elcc_surface_cap_factor
+Wind_Solar,Solar_BTM,PRMZone1,0.100385265
+Wind_Solar,Solar,PRMZone1,0.277001349
+Wind_Solar,Wind,PRMZone1,0.282768082
+Wind_Solar,Solar_BTM,PRMZone2,0.100385265
+Wind_Solar,Solar,PRMZone2,0.277001349
+Wind_Solar,Wind,PRMZone2,0.282768082

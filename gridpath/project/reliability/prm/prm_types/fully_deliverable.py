@@ -38,21 +38,22 @@ def add_model_components(
     :return:
     """
     m.FULLY_DELIVERABLE_PRM_PROJECTS = Set(
-        within=m.PRM_PROJECTS,
+        within=m.PRM_PROJECTS_PRM_ZONES,
         initialize=lambda mod: subset_init_by_param_value(
             mod=mod,
-            set_name="PRM_PROJECTS",
+            set_name="PRM_PROJECTS_PRM_ZONES",
             param_name="prm_type",
             param_value="fully_deliverable",
         ),
     )
 
 
-def elcc_eligible_capacity_rule(mod, g, p):
+def elcc_eligible_capacity_rule(mod, g, z, p):
     """
 
     :param mod:
     :param g:
+    :param z:
     :param p:
     :return:
     """

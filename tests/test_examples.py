@@ -1772,6 +1772,16 @@ class TestExamples(unittest.TestCase):
         scenario_name = "test_inertia_reserves"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_example_2periods_new_build_simple_prm_prj_in_2_zone(self):
+        """
+        Check validation and objective function value of
+        "2periods_new_build_simple_prm_prj_in_2_zone" example
+        :return:
+        """
+
+        scenario_name = "2periods_new_build_simple_prm_prj_in_2_zone"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     def test_test_w_no_prj_av_sid_specified(self):
         """
         Check validation and objective function value of

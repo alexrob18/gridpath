@@ -50,10 +50,34 @@ def add_model_components(
     :return:
     """
     # First figure out which projects we need to track for PRM contribution
-    m.PRM_PROJECTS = Set(within=m.PROJECTS)
-    m.prm_zone = Param(m.PRM_PROJECTS, within=m.PRM_ZONES)
+    m.PRM_PROJECTS_PRM_ZONES = Set(dimen=2, within=m.PROJECTS * m.PRM_ZONES)
+
+    # derived sets
+    m.PRM_PROJECTS = Set(
+        within=m.PROJECTS,
+        initialize=lambda mod: list(
+            set(
+                [
+                    prj
+                    for (
+                        prj,
+                        z,
+                    ) in mod.PRM_PROJECTS_PRM_ZONES
+                ]
+            )
+        ),
+    )
+
+    m.PRM_PROJECTS_BY_PRM_ZONE = Set(
+        m.PRM_ZONES,
+        within=m.PRM_PROJECTS_PRM_ZONES,
+        initialize=lambda mod, prm_z: [
+            (prj, z) for (prj, z) in mod.PRM_PROJECTS_PRM_ZONES if prm_z == z
+        ],
+    )
+
     m.prm_type = Param(
-        m.PRM_PROJECTS,
+        m.PRM_PROJECTS_PRM_ZONES,
         within=[
             "energy_only_allowed",
             "fully_deliverable",
@@ -61,20 +85,15 @@ def add_model_components(
         ],
     )
 
-    m.PRM_PROJECTS_BY_PRM_ZONE = Set(
-        m.PRM_ZONES,
-        within=m.PRM_PROJECTS,
-        initialize=lambda mod, prm_z: subset_init_by_param_value(
-            mod, "PRM_PROJECTS", "prm_zone", prm_z
-        ),
-    )
-
     # Get operational carbon cap projects - timepoints combinations
     m.PRM_PRJ_OPR_PRDS = Set(
-        within=m.PRJ_OPR_PRDS,
-        initialize=lambda mod: subset_init_by_set_membership(
-            mod=mod, superset="PRJ_OPR_PRDS", index=0, membership_set=mod.PRM_PROJECTS
-        ),
+        dimen=3,
+        initialize=lambda mod: [
+            (prj, prm_z, p)
+            for (prj, p) in mod.PRJ_OPR_PRDS
+            for (prm_z) in mod.PRM_ZONES
+            if (prj, prm_z) in mod.PRM_PROJECTS_PRM_ZONES
+        ],
     )
 
 
@@ -108,14 +127,14 @@ def load_model_data(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         select=("project", "prm_zone", "prm_type"),
-        param=(m.prm_zone, m.prm_type),
+        param=m.prm_type,
     )
 
-    data_portal.data()["PRM_PROJECTS"] = {
-        None: list(data_portal.data()["prm_zone"].keys())
+    data_portal.data()["PRM_PROJECTS_PRM_ZONES"] = {
+        None: list(data_portal.data()["prm_type"].keys())
     }
 
 
@@ -152,10 +171,10 @@ def get_inputs_from_database(
         WHERE project_prm_zone_scenario_id = {prj_prm_zone}) as prm_zone_tbl
         USING (project)
         LEFT OUTER JOIN
-        (SELECT DISTINCT project, prm_type -- make sure prm_type is the same in all prds
+        (SELECT DISTINCT project, prm_zone, prm_type -- make sure prm_type is the same in all prds
         FROM inputs_project_elcc_chars
         WHERE project_elcc_chars_scenario_id = {prj_elcc}) as prm_type_tbl
-        USING (project)
+        USING (project, prm_zone)
         -- Filter out projects whose PRM zone is not one included in our 
         -- prm_zone_sceenario_id
         WHERE prm_zone in (
@@ -296,15 +315,6 @@ def write_model_inputs(
         conn,
     )
 
-    # Make a dict for easy access
-    # Only assign a type to projects that contribute to a PRM zone in case
-    # we have projects with missing zones here
-    prj_zone_type_dict = dict()
-    for prj, zone, prm_type in project_zones:
-        prj_zone_type_dict[str(prj)] = (
-            (".", ".") if zone is None else (str(zone), str(prm_type))
-        )
-
     with open(
         os.path.join(
             scenario_directory,
@@ -314,49 +324,19 @@ def write_model_inputs(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
-        ),
-        "r",
-    ) as projects_file_in:
-        reader = csv.reader(projects_file_in, delimiter="\t", lineterminator="\n")
-
-        new_rows = list()
-
-        # Append column header
-        header = next(reader)
-        for new_column in ["prm_zone", "prm_type"]:
-            header.append(new_column)
-        new_rows.append(header)
-
-        # Append correct values
-        for row in reader:
-            # If project specified, check if BA specified or not
-            if row[0] in list(prj_zone_type_dict.keys()):
-                for new_column_value in [
-                    prj_zone_type_dict[row[0]][0],
-                    prj_zone_type_dict[row[0]][1],
-                ]:
-                    row.append(new_column_value)
-                new_rows.append(row)
-            # If project not specified, specify no BA
-            else:
-                for new_column in range(2):
-                    row.append(".")
-                new_rows.append(row)
-
-    with open(
-        os.path.join(
-            scenario_directory,
-            weather_iteration,
-            hydro_iteration,
-            availability_iteration,
-            subproblem,
-            stage,
-            "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         "w",
         newline="",
     ) as projects_file_out:
         writer = csv.writer(projects_file_out, delimiter="\t", lineterminator="\n")
-        writer.writerows(new_rows)
+
+        writer.writerow(
+            [
+                "project",
+                "prm_zone",
+                "prm_type",
+            ]
+        )
+        for row in project_zones.fetchall():
+            writer.writerow(list(row))
