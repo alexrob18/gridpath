@@ -154,7 +154,6 @@ class TestExamples(unittest.TestCase):
                         actual_objective_copy[subproblem] = stage_dict_copy
                 # Reset the objective to the new dictionary object
                 actual_objective = actual_objective_copy
-        print(actual_objective)
         # Uncomment this to save new objective function values
         df = pd.read_csv(TEST_SCENARIOS_CSV, delimiter=",")
         df.set_index("test_scenario", inplace=True)
@@ -225,8 +224,6 @@ class TestExamples(unittest.TestCase):
             self.df.loc[scenario_name]["expected_objective_darwin"]
         ):
             column_to_use = "expected_objective_darwin"
-        if WINDOWS:
-            print("test")
         if WINDOWS and not pd.isnull(
             self.df.loc[scenario_name]["expected_objective_windows"]
         ):
@@ -236,8 +233,6 @@ class TestExamples(unittest.TestCase):
         # dictionary format stored as string in the CSV)
         # This is now done for all scenarios, even if they have no iterations
         # or multiple subproblem/stages
-        print(self.df)
-        print(column_to_use)
         objective = ast.literal_eval(self.df.loc[scenario_name][column_to_use])
         if not skip_validation:
             self.check_validation(scenario_name)
