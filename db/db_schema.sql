@@ -6779,13 +6779,13 @@ CREATE TABLE results_project_elcc_simple
 (
     scenario_id               INTEGER,
     project                   VARCHAR(64),
+    prm_zone                  VARCHAR(32),
     period                    INTEGER,
     weather_iteration         INTEGER,
     hydro_iteration           INTEGER,
     availability_iteration    INTEGER,
     subproblem_id             INTEGER,
     stage_id                  INTEGER,
-    prm_zone                  VARCHAR(32),
     technology                VARCHAR(32),
     load_zone                 VARCHAR(32),
     energy_target_zone        VARCHAR(32),
@@ -6795,7 +6795,7 @@ CREATE TABLE results_project_elcc_simple
     energy_only_capacity_mw   FLOAT,
     elcc_simple_fraction      FLOAT,
     elcc_mw                   FLOAT,
-    PRIMARY KEY (scenario_id, project, period, weather_iteration,
+    PRIMARY KEY (scenario_id, project, prm_zone, period, weather_iteration,
                  hydro_iteration, subproblem_id, stage_id)
 );
 
@@ -6804,6 +6804,7 @@ CREATE TABLE results_project_elcc_surface
 (
     scenario_id               INTEGER,
     project                   VARCHAR(64),
+    prm_zone                  VARCHAR(32),
     period                    INTEGER,
     weather_iteration         INTEGER,
     hydro_iteration           INTEGER,
@@ -6811,7 +6812,6 @@ CREATE TABLE results_project_elcc_surface
     subproblem_id             INTEGER,
     stage_id                  INTEGER,
     elcc_surface_name         VARCHAR(32),
-    prm_zone                  VARCHAR(32),
     facet                     INTEGER,
     technology                VARCHAR(32),
     load_zone                 VARCHAR(32),
@@ -6822,7 +6822,7 @@ CREATE TABLE results_project_elcc_surface
     energy_only_capacity_mw   FLOAT,
     elcc_surface_coefficient  FLOAT,
     elcc_mw                   FLOAT,
-    PRIMARY KEY (scenario_id, project, period, weather_iteration,
+    PRIMARY KEY (scenario_id, project, prm_zone, period, weather_iteration,
                  hydro_iteration, subproblem_id, stage_id, facet)
 );
 
