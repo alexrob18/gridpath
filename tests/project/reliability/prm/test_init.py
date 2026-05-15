@@ -172,7 +172,7 @@ class TestProjPRMInit(unittest.TestCase):
         )
         actual_prm_zone = OrderedDict(
             sorted(
-                {prj: instance.prm_zone[prj] for prj in instance.PRM_PROJECTS}.items()
+                {prj: prm_zone for (prj, prm_zone) in instance.PRM_PROJECTS_PRM_ZONES}.items()
             )
         )
         self.assertDictEqual(expected_prm_zone, actual_prm_zone)
@@ -181,36 +181,36 @@ class TestProjPRMInit(unittest.TestCase):
         expected_prm_type = OrderedDict(
             sorted(
                 {
-                    "Coal": "fully_deliverable",
-                    "Coal_z2": "fully_deliverable",
-                    "Gas_CCGT": "fully_deliverable",
-                    "Gas_CCGT_New": "fully_deliverable",
-                    "Gas_CCGT_New_Binary": "fully_deliverable",
-                    "Gas_CCGT_z2": "fully_deliverable",
-                    "Gas_CT": "fully_deliverable",
-                    "Gas_CT_New": "fully_deliverable",
-                    "Gas_CT_z2": "fully_deliverable",
-                    "Nuclear": "fully_deliverable",
-                    "Nuclear_z2": "fully_deliverable",
-                    "Wind": "energy_only_allowed",
-                    "Wind_z2": "energy_only_allowed",
-                    "Battery": "fully_deliverable_energy_limited",
-                    "Battery_Binary": "fully_deliverable_energy_limited",
-                    "Battery_Specified": "fully_deliverable_energy_limited",
-                    "Hydro": "fully_deliverable",
-                    "Hydro_NonCurtailable": "fully_deliverable",
-                    "Disp_Binary_Commit": "fully_deliverable",
-                    "Disp_Cont_Commit": "fully_deliverable",
-                    "Disp_No_Commit": "fully_deliverable",
-                    "Clunky_Old_Gen": "fully_deliverable",
-                    "Clunky_Old_Gen2": "fully_deliverable",
-                    "Nuclear_Flexible": "fully_deliverable",
+                    ("Coal", "PRM_Zone1"): "fully_deliverable",
+                    ("Coal_z2", "PRM_Zone2"): "fully_deliverable",
+                    ("Gas_CCGT", "PRM_Zone1"): "fully_deliverable",
+                    ("Gas_CCGT_New", "PRM_Zone1"): "fully_deliverable",
+                    ("Gas_CCGT_New_Binary", "PRM_Zone1"): "fully_deliverable",
+                    ("Gas_CCGT_z2", "PRM_Zone2"): "fully_deliverable",
+                    ("Gas_CT", "PRM_Zone1"): "fully_deliverable",
+                    ("Gas_CT_New", "PRM_Zone1"): "fully_deliverable",
+                    ("Gas_CT_z2", "PRM_Zone2"): "fully_deliverable",
+                    ("Nuclear", "PRM_Zone1"): "fully_deliverable",
+                    ("Nuclear_z2", "PRM_Zone2"): "fully_deliverable",
+                    ("Wind", "PRM_Zone1"): "energy_only_allowed",
+                    ("Wind_z2", "PRM_Zone2"): "energy_only_allowed",
+                    ("Battery", "PRM_Zone1"): "fully_deliverable_energy_limited",
+                    ("Battery_Binary", "PRM_Zone1"): "fully_deliverable_energy_limited",
+                    ("Battery_Specified", "PRM_Zone1"): "fully_deliverable_energy_limited",
+                    ("Hydro", "PRM_Zone1"): "fully_deliverable",
+                    ("Hydro_NonCurtailable", "PRM_Zone1"): "fully_deliverable",
+                    ("Disp_Binary_Commit", "PRM_Zone1"): "fully_deliverable",
+                    ("Disp_Cont_Commit", "PRM_Zone1"): "fully_deliverable",
+                    ("Disp_No_Commit", "PRM_Zone1"): "fully_deliverable",
+                    ("Clunky_Old_Gen", "PRM_Zone1"): "fully_deliverable",
+                    ("Clunky_Old_Gen2", "PRM_Zone1"): "fully_deliverable",
+                    ("Nuclear_Flexible", "PRM_Zone1"): "fully_deliverable",
                 }.items()
             )
         )
         actual_prm_type = OrderedDict(
             sorted(
-                {prj: instance.prm_type[prj] for prj in instance.PRM_PROJECTS}.items()
+                {prj: instance.prm_type[prj] for prj in instance.PRM_PROJECTS_PRM_ZONES}.items()
             )
         )
         self.assertDictEqual(expected_prm_type, actual_prm_type)
@@ -245,7 +245,7 @@ class TestProjPRMInit(unittest.TestCase):
             ),
         }
         actual_projects_by_zone = {
-            z: sorted([prj for prj in instance.PRM_PROJECTS_BY_PRM_ZONE[z]])
+            z: sorted([prj for (prj, prm_zone) in instance.PRM_PROJECTS_BY_PRM_ZONE[z]])
             for z in instance.PRM_ZONES
         }
 
@@ -254,55 +254,55 @@ class TestProjPRMInit(unittest.TestCase):
         # Set: PRM_PRJ_OPR_PRDS
         expected_proj_period_set = sorted(
             [
-                ("Nuclear", 2020),
-                ("Gas_CCGT", 2020),
-                ("Coal", 2020),
-                ("Gas_CT", 2020),
-                ("Wind", 2020),
-                ("Nuclear", 2030),
-                ("Gas_CCGT", 2030),
-                ("Coal", 2030),
-                ("Gas_CT", 2030),
-                ("Wind", 2030),
-                ("Nuclear_z2", 2020),
-                ("Gas_CCGT_z2", 2020),
-                ("Coal_z2", 2020),
-                ("Gas_CT_z2", 2020),
-                ("Wind_z2", 2020),
-                ("Nuclear_z2", 2030),
-                ("Gas_CCGT_z2", 2030),
-                ("Coal_z2", 2030),
-                ("Gas_CT_z2", 2030),
-                ("Wind_z2", 2030),
-                ("Battery_Specified", 2020),
-                ("Gas_CCGT_New", 2020),
-                ("Gas_CCGT_New", 2030),
-                ("Gas_CCGT_New_Binary", 2020),
-                ("Gas_CCGT_New_Binary", 2030),
-                ("Gas_CT_New", 2030),
-                ("Battery", 2020),
-                ("Battery", 2030),
-                ("Battery_Binary", 2020),
-                ("Battery_Binary", 2030),
-                ("Hydro", 2020),
-                ("Hydro", 2030),
-                ("Hydro_NonCurtailable", 2020),
-                ("Hydro_NonCurtailable", 2030),
-                ("Disp_Binary_Commit", 2020),
-                ("Disp_Binary_Commit", 2030),
-                ("Disp_Cont_Commit", 2020),
-                ("Disp_Cont_Commit", 2030),
-                ("Disp_No_Commit", 2020),
-                ("Disp_No_Commit", 2030),
-                ("Clunky_Old_Gen", 2020),
-                ("Clunky_Old_Gen", 2030),
-                ("Clunky_Old_Gen2", 2020),
-                ("Clunky_Old_Gen2", 2030),
-                ("Nuclear_Flexible", 2030),
+                ("Nuclear", "PRM_Zone1", 2020),
+                ("Gas_CCGT", "PRM_Zone1", 2020),
+                ("Coal", "PRM_Zone1", 2020),
+                ("Gas_CT", "PRM_Zone1", 2020),
+                ("Wind", "PRM_Zone1", 2020),
+                ("Nuclear", "PRM_Zone1", 2030),
+                ("Gas_CCGT", "PRM_Zone1", 2030),
+                ("Coal", "PRM_Zone1", 2030),
+                ("Gas_CT", "PRM_Zone1", 2030),
+                ("Wind", "PRM_Zone1", 2030),
+                ("Nuclear_z2", "PRM_Zone2", 2020),
+                ("Gas_CCGT_z2", "PRM_Zone2", 2020),
+                ("Coal_z2", "PRM_Zone2", 2020),
+                ("Gas_CT_z2", "PRM_Zone2", 2020),
+                ("Wind_z2", "PRM_Zone2", 2020),
+                ("Nuclear_z2", "PRM_Zone2", 2030),
+                ("Gas_CCGT_z2", "PRM_Zone2", 2030),
+                ("Coal_z2", "PRM_Zone2", 2030),
+                ("Gas_CT_z2", "PRM_Zone2", 2030),
+                ("Wind_z2", "PRM_Zone2", 2030),
+                ("Battery_Specified", "PRM_Zone1", 2020),
+                ("Gas_CCGT_New", "PRM_Zone1", 2020),
+                ("Gas_CCGT_New", "PRM_Zone1", 2030),
+                ("Gas_CCGT_New_Binary", "PRM_Zone1", 2020),
+                ("Gas_CCGT_New_Binary", "PRM_Zone1", 2030),
+                ("Gas_CT_New", "PRM_Zone1", 2030),
+                ("Battery", "PRM_Zone1", 2020),
+                ("Battery", "PRM_Zone1", 2030),
+                ("Battery_Binary", "PRM_Zone1", 2020),
+                ("Battery_Binary", "PRM_Zone1", 2030),
+                ("Hydro", "PRM_Zone1", 2020),
+                ("Hydro", "PRM_Zone1", 2030),
+                ("Hydro_NonCurtailable", "PRM_Zone1", 2020),
+                ("Hydro_NonCurtailable", "PRM_Zone1", 2030),
+                ("Disp_Binary_Commit", "PRM_Zone1", 2020),
+                ("Disp_Binary_Commit", "PRM_Zone1", 2030),
+                ("Disp_Cont_Commit", "PRM_Zone1", 2020),
+                ("Disp_Cont_Commit", "PRM_Zone1", 2030),
+                ("Disp_No_Commit", "PRM_Zone1", 2020),
+                ("Disp_No_Commit", "PRM_Zone1", 2030),
+                ("Clunky_Old_Gen", "PRM_Zone1", 2020),
+                ("Clunky_Old_Gen", "PRM_Zone1", 2030),
+                ("Clunky_Old_Gen2", "PRM_Zone1", 2020),
+                ("Clunky_Old_Gen2", "PRM_Zone1", 2030),
+                ("Nuclear_Flexible", "PRM_Zone1", 2030),
             ]
         )
         actual_proj_period_set = sorted(
-            [(prj, period) for (prj, period) in instance.PRM_PRJ_OPR_PRDS]
+            [(prj, prm_zone, period) for (prj, prm_zone, period) in instance.PRM_PRJ_OPR_PRDS]
         )
 
         self.assertListEqual(expected_proj_period_set, actual_proj_period_set)

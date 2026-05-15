@@ -179,7 +179,7 @@ def add_model_components(
                 * mod.peak_designation_multiplier[
                     prj, constraint_type, peak_designation
                 ]
-                for (prj, p) in mod.EOA_PRM_PRJ_OPR_PRDS
+                for (prj, prm_zone, p) in mod.EOA_PRM_PRJ_OPR_PRDS
                 if p == period
                 and prj in mod.PROJECTS_BY_DELIVERABILITY_GROUP[g]
                 and (prj, constraint_type, peak_designation)
@@ -207,11 +207,11 @@ def add_model_components(
         """
         if constraint_type == "deliverable":
             return sum(
-                mod.Deliverable_Capacity_MW[prj, p]
+                mod.Deliverable_Capacity_MW[prj, prm_zone, p]
                 * mod.peak_designation_multiplier[
                     prj, constraint_type, peak_designation
                 ]
-                for (prj, p) in mod.EOA_PRM_PRJ_OPR_PRDS
+                for (prj, prm_zone, p) in mod.EOA_PRM_PRJ_OPR_PRDS
                 if p == period
                 and prj in mod.PROJECTS_BY_DELIVERABILITY_GROUP[g]
                 and (prj, constraint_type, peak_designation)
@@ -242,7 +242,7 @@ def add_model_components(
                 * mod.peak_designation_multiplier[
                     prj, constraint_type, peak_designation
                 ]
-                for (prj, p) in mod.EOA_PRM_PRJ_OPR_PRDS
+                for (prj, prm_zone, p) in mod.EOA_PRM_PRJ_OPR_PRDS
                 if p == period
                 and prj in mod.PROJECTS_BY_DELIVERABILITY_GROUP[g]
                 and (prj, constraint_type, peak_designation)

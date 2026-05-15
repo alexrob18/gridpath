@@ -1,13 +1,13 @@
-elcc_surface_name	project	period	facet	elcc_surface_coefficient
-Nuclear	Nuclear	2020	1	0.9
-Nuclear	Nuclear	2020	2	0.9
-Nuclear	Nuclear	2030	1	0.9
-Nuclear	Nuclear	2030	2	0.9
-Wind_Solar	Wind	2020	1	0.3
-Wind_Solar	Wind	2020	2	0.2
-Wind_Solar	Wind	2030	1	0.25
-Wind_Solar	Wind	2030	2	0.2
-Wind_Solar	Wind_z2	2020	1	0.3
-Wind_Solar	Wind_z2	2020	2	0.25
-Wind_Solar	Wind_z2	2030	1	0.3
-Wind_Solar	Wind_z2	2030	2	0.25
+elcc_surface_name	project	prm_zone	period	facet	elcc_surface_coefficient
+Nuclear	Nuclear	PRM_Zone1	2020	1	0.9
+Nuclear	Nuclear	PRM_Zone1	2020	2	0.9
+Nuclear	Nuclear	PRM_Zone1	2030	1	0.9
+Nuclear	Nuclear	PRM_Zone1	2030	2	0.9
+Wind_Solar	Wind	PRM_Zone1	2020	1	0.3
+Wind_Solar	Wind	PRM_Zone1	2020	2	0.2
+Wind_Solar	Wind	PRM_Zone1	2030	1	0.25
+Wind_Solar	Wind	PRM_Zone1	2030	2	0.2
+Wind_Solar	Wind_z2	PRM_Zone2	2020	1	0.3
+Wind_Solar	Wind_z2	PRM_Zone2	2020	2	0.25
+Wind_Solar	Wind_z2	PRM_Zone2	2030	1	0.3
+Wind_Solar	Wind_z2	PRM_Zone2	2030	2	0.25

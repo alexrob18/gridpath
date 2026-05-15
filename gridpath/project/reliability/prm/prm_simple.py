@@ -19,7 +19,6 @@ also simultaneous contribute a simple fraction of their capacity (the fraction
 defaults to 0 if not specified).
 """
 
-
 import csv
 import os.path
 from pyomo.environ import Param, Reals, Expression, value
@@ -52,16 +51,20 @@ def add_model_components(
     # The fraction of ELCC-eligible capacity that counts for the PRM via the
     # simple PRM method (whether or not project also contributes through the
     # ELCC surface)
-    m.elcc_simple_fraction = Param(m.PRM_PROJECTS, m.PERIODS, within=Reals, default=0)
+    m.elcc_simple_fraction = Param(
+        m.PRM_PROJECTS_PRM_ZONES, m.PERIODS, within=Reals, default=0
+    )
 
-    def elcc_simple_rule(mod, g, p):
+    def elcc_simple_rule(mod, g, z, p):
         """
 
         :param g:
         :param p:
         :return:
         """
-        return mod.ELCC_Eligible_Capacity_MW[g, p] * mod.elcc_simple_fraction[g, p]
+        return (
+            mod.ELCC_Eligible_Capacity_MW[g, z, p] * mod.elcc_simple_fraction[g, z, p]
+        )
 
     m.PRM_Simple_Contribution_MW = Expression(m.PRM_PRJ_OPR_PRDS, rule=elcc_simple_rule)
 
@@ -147,18 +150,18 @@ def export_results(
                 "elcc_mw",
             ]
         )
-        for prj, period in sorted(m.PRM_PRJ_OPR_PRDS):
+        for prj, prm_z, period in sorted(m.PRM_PRJ_OPR_PRDS):
             writer.writerow(
                 [
                     prj,
                     period,
-                    m.prm_zone[prj],
+                    prm_z,
                     m.technology[prj],
                     m.load_zone[prj],
                     value(m.Capacity_MW[prj, period]),
-                    value(m.ELCC_Eligible_Capacity_MW[prj, period]),
-                    value(m.elcc_simple_fraction[prj, period]),
-                    value(m.PRM_Simple_Contribution_MW[prj, period]),
+                    value(m.ELCC_Eligible_Capacity_MW[prj, prm_z, period]),
+                    value(m.elcc_simple_fraction[prj, prm_z, period]),
+                    value(m.PRM_Simple_Contribution_MW[prj, prm_z, period]),
                 ]
             )
 
@@ -183,24 +186,24 @@ def get_inputs_from_database(
 
     c = conn.cursor()
     project_fractions = c.execute(
-        """SELECT project, period, elcc_simple_fraction
+        """SELECT project, prm_zone, period, elcc_simple_fraction
         FROM (
             SELECT project
             FROM inputs_project_portfolios
             WHERE project_portfolio_scenario_id = {portfolio}
          ) as portfolio
          LEFT OUTER JOIN (
-            SELECT project
+            SELECT project, prm_zone
             FROM inputs_project_prm_zones
             WHERE project_prm_zone_scenario_id = {prm_zone}
         ) as proj_tbl
         USING (project)
         LEFT OUTER JOIN (
-            SELECT project, project_elcc_simple_scenario_id
+            SELECT project, prm_zone, project_elcc_simple_scenario_id
             FROM inputs_project_elcc_chars
             WHERE project_elcc_chars_scenario_id = {prj_elcc} 
         )
-        USING (project)
+        USING (project, prm_zone)
         LEFT OUTER JOIN (
             SELECT project, project_elcc_simple_scenario_id, period, 
             elcc_simple_fraction
@@ -343,7 +346,7 @@ def write_model_inputs(
         newline="",
     ) as projects_file_out:
         writer = csv.writer(projects_file_out, delimiter="\t", lineterminator="\n")
-        writer.writerow(["project", "period", "elcc_simple_fraction"])
+        writer.writerow(["project", "prm_zone", "period", "elcc_simple_fraction"])
         for row in project_fractions:
             writer.writerow(row)
 

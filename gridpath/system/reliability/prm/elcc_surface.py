@@ -81,9 +81,9 @@ def add_model_components(
         return (
             mod.Dynamic_ELCC_MW[surface, prm_zone, period]
             <= sum(
-                mod.ELCC_Surface_Contribution_MW[s, prj, period, facet]
-                for (s, prj) in mod.ELCC_SURFACE_PROJECTS_BY_PRM_ZONE[prm_zone]
-                if s == surface
+                mod.ELCC_Surface_Contribution_MW[s, prj, prm_zone, period, facet]
+                for (s, prj, prm_z) in mod.ELCC_SURFACE_PROJECTS_BY_PRM_ZONE[prm_zone]
+                if s == surface and prm_zone == prm_z
                 # This is redundant since since ELCC_Surface_Contribution_MW
                 # is 0 for non-operational periods, but keep here for
                 # extra safety

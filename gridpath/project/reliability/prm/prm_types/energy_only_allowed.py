@@ -18,7 +18,6 @@ can have no PRM contribution (and therefore potentially incur a smaller cost),
 or partly or fully deliverable
 """
 
-
 import csv
 import os.path
 from pyomo.environ import (
@@ -57,25 +56,34 @@ def add_model_components(
     :return:
     """
 
-    m.EOA_PRM_PROJECTS = Set(
-        within=m.PRM_PROJECTS,
+    m.EOA_PRM_PROJECTS_PRM_ZONES = Set(
+        within=m.PRM_PROJECTS_PRM_ZONES,
         initialize=lambda mod: subset_init_by_param_value(
             mod=mod,
-            set_name="PRM_PROJECTS",
+            set_name="PRM_PROJECTS_PRM_ZONES",
             param_name="prm_type",
             param_value="energy_only_allowed",
         ),
     )
 
+    m.EOA_PRM_PROJECTS = Set(
+        dimen=1,
+        within=m.PRM_PROJECTS,
+
+        initialize=lambda mod: [
+            prj
+            for (prj, prm_z) in mod.EOA_PRM_PROJECTS_PRM_ZONES
+        ]
+    )
+
     m.EOA_PRM_PRJ_OPR_PRDS = Set(
-        dimen=2,
+        dimen=3,
         within=m.PRM_PRJ_OPR_PRDS,
-        initialize=lambda mod: subset_init_by_set_membership(
-            mod=mod,
-            superset="PRM_PRJ_OPR_PRDS",
-            index=0,
-            membership_set=mod.EOA_PRM_PROJECTS,
-        ),
+        initialize=lambda mod: [
+            (prj, prm_z, p)
+            for (prj, prm_z, p) in mod.PRM_PRJ_OPR_PRDS
+            if (prj, prm_z) in mod.EOA_PRM_PROJECTS_PRM_ZONES
+        ],
     )
 
     # We can allow the 'fully-deliverable' capacity to be different from the
@@ -83,34 +91,35 @@ def add_model_components(
     # additional costs to be incurred (e.g. for transmission, etc.)
     m.Deliverable_Capacity_MW = Var(m.EOA_PRM_PRJ_OPR_PRDS, within=NonNegativeReals)
 
-    def energy_only_capacity_init(mod, g, p):
+    def energy_only_capacity_init(mod, g, z, p):
         """ """
-        return mod.Capacity_MW[g, p] - mod.Deliverable_Capacity_MW[g, p]
+        return mod.Capacity_MW[g, p] - mod.Deliverable_Capacity_MW[g, z, p]
 
     m.Energy_Only_Capacity_MW = Expression(
         m.EOA_PRM_PRJ_OPR_PRDS, initialize=energy_only_capacity_init
     )
 
-    def deliverable_capacity_constraint_rule(mod, g, p):
+    def deliverable_capacity_constraint_rule(mod, g, z, p):
         """
         Deliverable capacity must be less than the project capacity.
         """
-        return mod.Deliverable_Capacity_MW[g, p] <= mod.Capacity_MW[g, p]
+        return mod.Deliverable_Capacity_MW[g, z, p] <= mod.Capacity_MW[g, p]
 
     m.Deliverable_Less_Than_Total_Constraint = Constraint(
         m.EOA_PRM_PRJ_OPR_PRDS, rule=deliverable_capacity_constraint_rule
     )
 
 
-def elcc_eligible_capacity_rule(mod, proj, period):
+def elcc_eligible_capacity_rule(mod, proj, prm_zone, period):
     """
 
     :param mod:
     :param proj:
+    :param prm_zone:
     :param period:
     :return:
     """
-    return mod.Deliverable_Capacity_MW[proj, period]
+    return mod.Deliverable_Capacity_MW[proj, prm_zone, period]
 
 
 def export_results(
@@ -159,15 +168,15 @@ def export_results(
                 "energy_only_capacity_mw",
             ]
         )
-        for prj, p in m.EOA_PRM_PRJ_OPR_PRDS:
+        for prj, prm_zone, p in m.EOA_PRM_PRJ_OPR_PRDS:
             writer.writerow(
                 [
                     prj,
                     p,
-                    m.prm_zone[prj],
+                    prm_zone,
                     value(m.Capacity_MW[prj, p]),
-                    value(m.Deliverable_Capacity_MW[prj, p]),
-                    value(m.Energy_Only_Capacity_MW[prj, p]),
+                    value(m.Deliverable_Capacity_MW[prj, prm_zone, p]),
+                    value(m.Energy_Only_Capacity_MW[prj, prm_zone, p]),
                 ]
             )
 
@@ -225,7 +234,7 @@ def process_model_results(db, c, scenario_id, subscenarios, quiet):
 
     # Figure out RPS zone for each project
     project_period_eocap = c.execute(
-        """SELECT project, period, energy_only_capacity_mw
+        """SELECT project, prm_zone, period, energy_only_capacity_mw
         FROM results_project_deliverability
             WHERE scenario_id = {};""".format(
             scenario_id
@@ -244,6 +253,7 @@ def process_model_results(db, c, scenario_id, subscenarios, quiet):
             SET energy_only_capacity_mw = ?
             WHERE scenario_id = ?
             AND project = ?
+            AND prm_zone = ?
             AND period = ?;""".format(
             table
         )
