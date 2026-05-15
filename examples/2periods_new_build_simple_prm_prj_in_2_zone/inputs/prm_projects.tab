@@ -1,0 +1,9 @@
+project	prm_zone	prm_type
+Coal	PRMZone1	fully_deliverable
+Gas_CCGT	PRMZone1	fully_deliverable
+Gas_CCGT_new	PRMZone1	energy_only_allowed
+Gas_CT	PRMZone1	fully_deliverable
+Gas_CT_new	PRMZone1	energy_only_allowed
+Nuclear	PRMZone1	fully_deliverable
+Nuclear	PRMZone2	fully_deliverable
+Wind	PRMZone1	fully_deliverable
