@@ -245,7 +245,7 @@ def process_model_results(db, c, scenario_id, subscenarios, quiet):
 
     results = []
     for row in project_period_eocap:
-        results.append((row[2], scenario_id, row[0], row[1]))
+        results.append((row[3], scenario_id, row[0], row[1], row[2]))
 
     for table in tables_to_update:
         sql = """
