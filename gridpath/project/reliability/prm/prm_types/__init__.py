@@ -51,10 +51,10 @@ def add_model_components(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         sep="\t",
-        usecols=["project", "prm_type"],
+        usecols=["project", "prm_zone", "prm_type"],
     )
     required_prm_modules = [
         prm_type for prm_type in project_df.prm_type.unique() if prm_type != "."
@@ -78,9 +78,9 @@ def add_model_components(
             )
 
     # For each PRM project, get the ELCC-eligible capacity
-    def elcc_eligible_capacity_rule(mod, g, p):
-        prm_type = mod.prm_type[g]
-        return imported_prm_modules[prm_type].elcc_eligible_capacity_rule(mod, g, p)
+    def elcc_eligible_capacity_rule(mod, g, z, p):
+        prm_type = mod.prm_type[g, z]
+        return imported_prm_modules[prm_type].elcc_eligible_capacity_rule(mod, g, z, p)
 
     m.ELCC_Eligible_Capacity_MW = Expression(
         m.PRM_PRJ_OPR_PRDS, rule=elcc_eligible_capacity_rule
@@ -119,10 +119,10 @@ def load_model_data(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         sep="\t",
-        usecols=["project", "prm_type"],
+        usecols=["project", "prm_zone", "prm_type"],
     )
     required_prm_modules = [
         prm_type for prm_type in project_df.prm_type.unique() if prm_type != "."
@@ -179,7 +179,7 @@ def export_results(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "prm_projects.tab",
         ),
         sep="\t",
         usecols=["project", "prm_type"],
@@ -231,7 +231,7 @@ def get_required_prm_type_modules(
             (SELECT project FROM inputs_project_portfolios
             WHERE project_portfolio_scenario_id = {}) as portfolio_tbl
             LEFT OUTER JOIN 
-            (SELECT project
+            (SELECT project, prm_zone
             FROM inputs_project_prm_zones
             WHERE project_prm_zone_scenario_id = {}) as prm_proj_tbl
             LEFT OUTER JOIN 

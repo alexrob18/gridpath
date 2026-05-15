@@ -179,38 +179,37 @@ class TestProjELCCSurface(unittest.TestCase):
         expected_elcc_surface_names = OrderedDict(
             sorted(
                 {
-                    "Coal": None,
-                    "Coal_z2": None,
-                    "Gas_CCGT": None,
-                    "Gas_CCGT_New": None,
-                    "Gas_CCGT_New_Binary": None,
-                    "Gas_CCGT_z2": None,
-                    "Gas_CT": None,
-                    "Gas_CT_New": None,
-                    "Gas_CT_z2": None,
-                    "Nuclear": "Nuclear",
-                    "Nuclear_z2": None,
-                    "Wind": "Wind_Solar",
-                    "Wind_z2": "Wind_Solar",
-                    "Battery": None,
-                    "Battery_Binary": None,
-                    "Battery_Specified": None,
-                    "Hydro": None,
-                    "Hydro_NonCurtailable": None,
-                    "Disp_Binary_Commit": None,
-                    "Disp_Cont_Commit": None,
-                    "Disp_No_Commit": None,
-                    "Clunky_Old_Gen": None,
-                    "Clunky_Old_Gen2": None,
-                    "Nuclear_Flexible": None,
+                    ("Coal", "PRM_Zone1"): None,
+                    ("Coal_z2", "PRM_Zone2"): None,
+                    ("Gas_CCGT", "PRM_Zone1"): None,
+                    ("Gas_CCGT_New", "PRM_Zone1"): None,
+                    ("Gas_CCGT_New_Binary", "PRM_Zone1"): None,
+                    ("Gas_CCGT_z2", "PRM_Zone2"): None,
+                    ("Gas_CT", "PRM_Zone1"): None,
+                    ("Gas_CT_New", "PRM_Zone1"): None,
+                    ("Gas_CT_z2", "PRM_Zone2"): None,
+                    ("Nuclear", "PRM_Zone1"): "Nuclear",
+                    ("Nuclear_z2", "PRM_Zone2"): None,
+                    ("Wind", "PRM_Zone1"): "Wind_Solar",
+                    ("Wind_z2", "PRM_Zone2"): "Wind_Solar",
+                    ("Battery", "PRM_Zone1"): None,
+                    ("Battery_Binary", "PRM_Zone1"): None,
+                    ("Battery_Specified", "PRM_Zone1"): None,
+                    ("Hydro", "PRM_Zone1"): None,
+                    ("Hydro_NonCurtailable", "PRM_Zone1"): None,
+                    ("Disp_Binary_Commit", "PRM_Zone1"): None,
+                    ("Disp_Cont_Commit", "PRM_Zone1"): None,
+                    ("Disp_No_Commit", "PRM_Zone1"): None,
+                    ("Clunky_Old_Gen", "PRM_Zone1"): None,
+                    ("Clunky_Old_Gen2", "PRM_Zone1"): None,
+                    ("Nuclear_Flexible", "PRM_Zone1"): None,
                 }.items()
             )
         )
-
         actual_elcc_surface_names = OrderedDict(
             sorted(
                 {
-                    p: instance.elcc_surface_name[p] for p in instance.PRM_PROJECTS
+                    p: instance.elcc_surface_name[p] for p in instance.PRM_PROJECTS_PRM_ZONES
                 }.items()
             )
         )
@@ -221,30 +220,30 @@ class TestProjELCCSurface(unittest.TestCase):
         expected_elcc_cf = OrderedDict(
             sorted(
                 {
-                    "Coal": None,
-                    "Coal_z2": None,
-                    "Gas_CCGT": None,
-                    "Gas_CCGT_New": None,
-                    "Gas_CCGT_New_Binary": None,
-                    "Gas_CCGT_z2": None,
-                    "Gas_CT": None,
-                    "Gas_CT_New": None,
-                    "Gas_CT_z2": None,
-                    "Nuclear": 0.123,
-                    "Nuclear_z2": None,
-                    "Wind": 0.123,
-                    "Wind_z2": 0.123,
-                    "Battery": None,
-                    "Battery_Binary": None,
-                    "Battery_Specified": None,
-                    "Hydro": None,
-                    "Hydro_NonCurtailable": None,
-                    "Disp_Binary_Commit": None,
-                    "Disp_Cont_Commit": None,
-                    "Disp_No_Commit": None,
-                    "Clunky_Old_Gen": None,
-                    "Clunky_Old_Gen2": None,
-                    "Nuclear_Flexible": None,
+                    ("Coal", "PRM_Zone1"): None,
+                    ("Coal_z2", "PRM_Zone2"): None,
+                    ("Gas_CCGT", "PRM_Zone1"): None,
+                    ("Gas_CCGT_New", "PRM_Zone1"): None,
+                    ("Gas_CCGT_New_Binary", "PRM_Zone1"): None,
+                    ("Gas_CCGT_z2", "PRM_Zone2"): None,
+                    ("Gas_CT", "PRM_Zone1"): None,
+                    ("Gas_CT_New", "PRM_Zone1"): None,
+                    ("Gas_CT_z2", "PRM_Zone2"): None,
+                    ("Nuclear", "PRM_Zone1"): 0.123,
+                    ("Nuclear_z2", "PRM_Zone2"): None,
+                    ("Wind", "PRM_Zone1"): 0.123,
+                    ("Wind_z2", "PRM_Zone2"): 0.123,
+                    ("Battery", "PRM_Zone1"): None,
+                    ("Battery_Binary", "PRM_Zone1"): None,
+                    ("Battery_Specified", "PRM_Zone1"): None,
+                    ("Hydro", "PRM_Zone1"): None,
+                    ("Hydro_NonCurtailable", "PRM_Zone1"): None,
+                    ("Disp_Binary_Commit", "PRM_Zone1"): None,
+                    ("Disp_Cont_Commit", "PRM_Zone1"): None,
+                    ("Disp_No_Commit", "PRM_Zone1"): None,
+                    ("Clunky_Old_Gen", "PRM_Zone1"): None,
+                    ("Clunky_Old_Gen2", "PRM_Zone1"): None,
+                    ("Nuclear_Flexible", "PRM_Zone1"): None,
                 }.items()
             )
         )
@@ -253,7 +252,7 @@ class TestProjELCCSurface(unittest.TestCase):
             sorted(
                 {
                     p: instance.elcc_surface_cap_factor[p]
-                    for p in instance.PRM_PROJECTS
+                    for p in instance.PRM_PROJECTS_PRM_ZONES
                 }.items()
             )
         )
@@ -262,10 +261,14 @@ class TestProjELCCSurface(unittest.TestCase):
 
         # Set: ELCC_SURFACE_PROJECTS
         expected_elcc_surf_prj = sorted(
-            [("Nuclear", "Nuclear"), ("Wind_Solar", "Wind"), ("Wind_Solar", "Wind_z2")]
+            [
+                ("Nuclear", "Nuclear", "PRM_Zone1"),
+                ("Wind_Solar", "Wind", "PRM_Zone1"),
+                ("Wind_Solar", "Wind_z2", "PRM_Zone2")
+            ]
         )
         actual_elcc_surf_prj = sorted(
-            [(s, p) for (s, p) in instance.ELCC_SURFACE_PROJECTS]
+            [(s, p, z) for (s, p, z) in instance.ELCC_SURFACE_PROJECTS]
         )
         self.assertListEqual(expected_elcc_surf_prj, actual_elcc_surf_prj)
 
@@ -273,8 +276,8 @@ class TestProjELCCSurface(unittest.TestCase):
         expected_surface_projects_by_zone = OrderedDict(
             sorted(
                 {
-                    "PRM_Zone1": [("Nuclear", "Nuclear"), ("Wind_Solar", "Wind")],
-                    "PRM_Zone2": [("Wind_Solar", "Wind_z2")],
+                    "PRM_Zone1": [("Nuclear", "Nuclear", "PRM_Zone1"), ("Wind_Solar", "Wind", "PRM_Zone1")],
+                    "PRM_Zone2": [("Wind_Solar", "Wind_z2", "PRM_Zone2")],
                 }.items()
             )
         )
@@ -283,8 +286,8 @@ class TestProjELCCSurface(unittest.TestCase):
             sorted(
                 {
                     z: [
-                        (s, p)
-                        for (s, p) in instance.ELCC_SURFACE_PROJECTS_BY_PRM_ZONE[z]
+                        (s, p, prm_z)
+                        for (s, p, prm_z) in instance.ELCC_SURFACE_PROJECTS_BY_PRM_ZONE[z]
                     ]
                     for z in instance.PRM_ZONES
                 }.items()
@@ -298,25 +301,25 @@ class TestProjELCCSurface(unittest.TestCase):
         # Set: ELCC_SURFACE_PROJECT_PERIOD_FACETS
         expected_s_prj_p_f = sorted(
             [
-                ("Nuclear", "Nuclear", 2020, 1),
-                ("Nuclear", "Nuclear", 2020, 2),
-                ("Nuclear", "Nuclear", 2030, 1),
-                ("Nuclear", "Nuclear", 2030, 2),
-                ("Wind_Solar", "Wind", 2020, 1),
-                ("Wind_Solar", "Wind", 2020, 2),
-                ("Wind_Solar", "Wind", 2030, 1),
-                ("Wind_Solar", "Wind", 2030, 2),
-                ("Wind_Solar", "Wind_z2", 2020, 1),
-                ("Wind_Solar", "Wind_z2", 2020, 2),
-                ("Wind_Solar", "Wind_z2", 2030, 1),
-                ("Wind_Solar", "Wind_z2", 2030, 2),
+                ("Nuclear", "Nuclear", "PRM_Zone1", 2020, 1),
+                ("Nuclear", "Nuclear", "PRM_Zone1", 2020, 2),
+                ("Nuclear", "Nuclear", "PRM_Zone1", 2030, 1),
+                ("Nuclear", "Nuclear", "PRM_Zone1", 2030, 2),
+                ("Wind_Solar", "Wind", "PRM_Zone1", 2020, 1),
+                ("Wind_Solar", "Wind", "PRM_Zone1", 2020, 2),
+                ("Wind_Solar", "Wind", "PRM_Zone1", 2030, 1),
+                ("Wind_Solar", "Wind", "PRM_Zone1", 2030, 2),
+                ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2020, 1),
+                ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2020, 2),
+                ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2030, 1),
+                ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2030, 2),
             ]
         )
 
         actual_s_prj_p_f = sorted(
             [
-                (s, prj, p, f)
-                for (s, prj, p, f) in instance.ELCC_SURFACE_PROJECT_PERIOD_FACETS
+                (s, prj, prm_z, p, f)
+                for (s, prj, prm_z, p, f) in instance.ELCC_SURFACE_PROJECT_PERIOD_FACETS
             ]
         )
 
@@ -326,18 +329,18 @@ class TestProjELCCSurface(unittest.TestCase):
         expected_coeff = OrderedDict(
             sorted(
                 {
-                    ("Nuclear", "Nuclear", 2020, 1): 0.9,
-                    ("Nuclear", "Nuclear", 2020, 2): 0.9,
-                    ("Nuclear", "Nuclear", 2030, 1): 0.9,
-                    ("Nuclear", "Nuclear", 2030, 2): 0.9,
-                    ("Wind_Solar", "Wind", 2020, 1): 0.3,
-                    ("Wind_Solar", "Wind", 2020, 2): 0.2,
-                    ("Wind_Solar", "Wind", 2030, 1): 0.25,
-                    ("Wind_Solar", "Wind", 2030, 2): 0.2,
-                    ("Wind_Solar", "Wind_z2", 2020, 1): 0.3,
-                    ("Wind_Solar", "Wind_z2", 2020, 2): 0.25,
-                    ("Wind_Solar", "Wind_z2", 2030, 1): 0.3,
-                    ("Wind_Solar", "Wind_z2", 2030, 2): 0.25,
+                    ("Nuclear", "Nuclear", "PRM_Zone1", 2020, 1): 0.9,
+                    ("Nuclear", "Nuclear", "PRM_Zone1", 2020, 2): 0.9,
+                    ("Nuclear", "Nuclear", "PRM_Zone1", 2030, 1): 0.9,
+                    ("Nuclear", "Nuclear", "PRM_Zone1", 2030, 2): 0.9,
+                    ("Wind_Solar", "Wind", "PRM_Zone1", 2020, 1): 0.3,
+                    ("Wind_Solar", "Wind", "PRM_Zone1", 2020, 2): 0.2,
+                    ("Wind_Solar", "Wind", "PRM_Zone1", 2030, 1): 0.25,
+                    ("Wind_Solar", "Wind", "PRM_Zone1", 2030, 2): 0.2,
+                    ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2020, 1): 0.3,
+                    ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2020, 2): 0.25,
+                    ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2030, 1): 0.3,
+                    ("Wind_Solar", "Wind_z2", "PRM_Zone2", 2030, 2): 0.25,
                 }.items()
             )
         )
@@ -345,8 +348,8 @@ class TestProjELCCSurface(unittest.TestCase):
         actual_coeff = OrderedDict(
             sorted(
                 {
-                    (s, prj, p, f): instance.elcc_surface_coefficient[s, prj, p, f]
-                    for (s, prj, p, f) in instance.ELCC_SURFACE_PROJECT_PERIOD_FACETS
+                    (s, prj, prm_z, p, f): instance.elcc_surface_coefficient[s, prj, prm_z, p, f]
+                    for (s, prj, prm_z, p, f) in instance.ELCC_SURFACE_PROJECT_PERIOD_FACETS
                 }.items()
             )
         )
