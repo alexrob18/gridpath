@@ -3891,7 +3891,7 @@ CREATE TABLE inputs_transmission_prm_zones
     transmission_line                 VARCHAR(64),
     prm_zone_from                     VARCHAR(32),
     prm_zone_to                       VARCHAR(32),
-    PRIMARY KEY (transmission_prm_zone_scenario_id, transmission_line),
+    PRIMARY KEY (transmission_prm_zone_scenario_id, transmission_line, prm_zone_from, prm_zone_to),
     FOREIGN KEY (transmission_prm_zone_scenario_id) REFERENCES
         subscenarios_transmission_prm_zones (transmission_prm_zone_scenario_id)
 );
