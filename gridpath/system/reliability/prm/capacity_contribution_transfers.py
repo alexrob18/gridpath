@@ -133,10 +133,7 @@ def add_model_components(
     )
 
     # Endogenous limits based on transmission links
-    m.PRM_TX_LINES = Set(within=m.TX_LINES)
-
-    m.prm_zone_from = Param(m.PRM_TX_LINES, within=m.PRM_ZONES)
-    m.prm_zone_to = Param(m.PRM_TX_LINES, within=m.PRM_ZONES)
+    m.PRM_TX_LINES = Set(dimen=3, within=m.TX_LINES * m.PRM_ZONES * m.PRM_ZONES)
 
     # Transfers between pairs of zones in each period
     m.Transfer_Capacity_Contribution = Var(
@@ -180,16 +177,12 @@ def add_model_components(
             mod.Tx_Max_Capacity_MW[tx, op]
             for (tx, op) in mod.TX_OPR_PRDS
             if op == prd
-            and tx in mod.PRM_TX_LINES
-            and mod.prm_zone_from[tx] == prm_z_from
-            and mod.prm_zone_to[tx] == prm_z_to
+            and (tx, prm_z_from, prm_z_to) in mod.PRM_TX_LINES
         ) + -sum(
             mod.Tx_Min_Capacity_MW[tx, op]
             for (tx, op) in mod.TX_OPR_PRDS
             if op == prd
-            and tx in mod.PRM_TX_LINES
-            and mod.prm_zone_from[tx] == prm_z_to
-            and mod.prm_zone_to[tx] == prm_z_from
+            and (tx, prm_z_to, prm_z_from)  in mod.PRM_TX_LINES
         )
 
     m.Capacity_Transfer_Tx_Limits_Constraint = Constraint(
@@ -208,14 +201,20 @@ def add_model_components(
     )
 
     def transfer_simple_capacity_only_rule(mod, prm_z, prd):
-        return (
-            sum(
-                mod.Transfer_Capacity_Contribution[prm_z_from, prm_z_to, prd]
-                for (prm_z_from, prm_z_to) in mod.PRM_ZONES_CAPACITY_TRANSFER_ZONES
-                if prm_z_from == prm_z
+        if (prm_z, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT:
+            return (
+                    sum(
+                        mod.Transfer_Capacity_Contribution[prm_z_from, prm_z_to, prd]
+                        for (prm_z_from, prm_z_to) in mod.PRM_ZONES_CAPACITY_TRANSFER_ZONES
+                        if prm_z_from == prm_z
+                        and (prm_z_from, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
+                        and (prm_z_to, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
+
+                    )
+                    <= mod.Total_PRM_Simple_Contribution_MW[prm_z, prd]
             )
-            <= mod.Total_PRM_Simple_Contribution_MW[prm_z, prd]
-        )
+        else:
+            return Constraint.Skip
 
     m.Transfer_Simple_Contributions_Only_Constraint = Constraint(
         m.PRM_FROM_ZONES, m.PERIODS, rule=transfer_simple_capacity_only_rule
@@ -310,26 +309,34 @@ def load_model_data(
                 m.capacity_transfer_cost_per_powerunit_yr,
             ),
         )
-
-    prm_transmission_lines_tab_file = os.path.join(
-        scenario_directory,
-        weather_iteration,
-        hydro_iteration,
-        availability_iteration,
-        subproblem,
-        stage,
-        "inputs",
-        "prm_transmission_lines.tab",
+    transfer_cap_list = []
+    _df = pd.read_csv(
+        os.path.join(
+            scenario_directory,
+            weather_iteration,
+            hydro_iteration,
+            availability_iteration,
+            subproblem,
+            stage,
+            "inputs",
+            "prm_transmission_lines.tab",
+        ),
+        sep="\t",
+        usecols=[
+            "transmission_line",
+            "prm_zone_from",
+            "prm_zone_to",
+        ],
     )
-    if os.path.exists(prm_transmission_lines_tab_file):
-        data_portal.load(
-            filename=prm_transmission_lines_tab_file,
-            index=m.PRM_TX_LINES,
-            param=(
-                m.prm_zone_from,
-                m.prm_zone_to,
-            ),
-        )
+    for r in zip(
+            _df["transmission_line"],
+            _df["prm_zone_from"],
+            _df["prm_zone_to"],
+    ):
+        transfer_cap_list.append((r[0], r[1], r[2]))
+
+    transfer_cap_list_list_no_dupl = list(dict.fromkeys(transfer_cap_list))
+    data_portal.data()["PRM_TX_LINES"] = {None: transfer_cap_list_list_no_dupl}
 
 
 # Database

@@ -160,24 +160,10 @@ class TestCapacityContributionTransfers(unittest.TestCase):
         self.assertDictEqual(expected_cost, actual_cost)
 
         # Set: PRM_TX_LINES
-        expected_prm_tx_lines = sorted(["Tx1", "Tx_New"])
+        expected_prm_tx_lines = sorted([("Tx1", "PRM_Zone1", "PRM_Zone2"), ("Tx_New", "PRM_Zone2", "PRM_Zone1")])
         actual_prm_tx_lines = sorted([tx for tx in instance.PRM_TX_LINES])
 
         self.assertListEqual(expected_prm_tx_lines, actual_prm_tx_lines)
-
-        # Param: prm_zone_from
-        expected_from = {"Tx1": "PRM_Zone1", "Tx_New": "PRM_Zone2"}
-
-        actual_from = {tx: instance.prm_zone_from[tx] for tx in instance.PRM_TX_LINES}
-
-        self.assertDictEqual(expected_from, actual_from)
-
-        # Param: prm_zone_to
-        expected_to = {"Tx1": "PRM_Zone2", "Tx_New": "PRM_Zone1"}
-
-        actual_to = {tx: instance.prm_zone_to[tx] for tx in instance.PRM_TX_LINES}
-
-        self.assertDictEqual(expected_to, actual_to)
 
 
 if __name__ == "__main__":
