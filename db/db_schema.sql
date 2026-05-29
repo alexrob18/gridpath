@@ -873,6 +873,52 @@ CREATE TABLE inputs_system_carbon_credits_params
         subscenarios_system_carbon_credits_params (carbon_credits_params_scenario_id)
 );
 
+-- Group carbon credits mapping
+DROP TABLE IF EXISTS subscenarios_carbon_credits_groups;
+CREATE TABLE subscenarios_carbon_credits_groups
+(
+    carbon_credits_group_scenario_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                                VARCHAR(32),
+    description                         VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_carbon_credits_groups;
+CREATE TABLE inputs_carbon_credits_groups
+(
+    carbon_credits_group_scenario_id INTEGER,
+    carbon_credits_group             VARCHAR(64),
+    carbon_credits_zone              VARCHAR(64),
+    PRIMARY KEY (carbon_credits_group_scenario_id, carbon_credits_group, carbon_credits_zone),
+    FOREIGN KEY (carbon_credits_group_scenario_id) REFERENCES
+        subscenarios_carbon_credits_groups (carbon_credits_group_scenario_id)
+);
+
+-- Group carbon credits requirements
+-- Requirements
+DROP TABLE IF EXISTS subscenarios_carbon_credits_group_requirements;
+CREATE TABLE subscenarios_carbon_credits_group_requirements
+(
+    carbon_credits_group_requirement_scenario_id INTEGER PRIMARY KEY
+        AUTOINCREMENT,
+    name                                           VARCHAR(32),
+    description                                    VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_carbon_credits_group_requirements;
+CREATE TABLE inputs_carbon_credits_group_requirements
+(
+    carbon_credits_group_requirement_scenario_id    INTEGER,
+    carbon_credits_group                            VARCHAR(64),
+    period                                          INTEGER,
+    carbon_credits_group_buy_min                    FLOAT,
+    carbon_credits_group_buy_max                    FLOAT,
+    PRIMARY KEY (carbon_credits_group_requirement_scenario_id,
+                 carbon_credits_group, period),
+    FOREIGN KEY (carbon_credits_group_requirement_scenario_id) REFERENCES
+        subscenarios_carbon_credits_group_requirements
+            (carbon_credits_group_requirement_scenario_id)
+);
+
 -- Generic policy
 -- TODO: add a generic policy list subscenario
 
@@ -5663,6 +5709,8 @@ CREATE TABLE scenarios
     project_carbon_credits_purchase_zone_scenario_id            INTEGER,
     project_carbon_credits_purchase_limits_scenario_id          INTEGER,
     project_carbon_credits_scenario_id                          INTEGER,
+    project_carbon_credits_group_requirement_scenario_id        INTEGER,
+    project_carbon_credits_group_scenario_id                    INTEGER,
     project_fuel_burn_limit_ba_scenario_id                      INTEGER,
     fuel_fuel_burn_limit_ba_scenario_id                         INTEGER,
     project_policy_zone_scenario_id                             INTEGER,
@@ -5862,6 +5910,12 @@ CREATE TABLE scenarios
     FOREIGN KEY (project_carbon_credits_scenario_id) REFERENCES
         subscenarios_project_carbon_credits
             (project_carbon_credits_scenario_id),
+    FOREIGN KEY (project_carbon_credits_group_scenario_id) REFERENCES
+        subscenarios_project_carbon_credits_groups
+            (project_carbon_credits_group_scenario_id),
+    FOREIGN KEY (project_carbon_credits_group_requirement_scenario_id) REFERENCES
+        subscenarios_project_carbon_credits_group_requirements
+            (project_carbon_credits_group_requirement_scenario_id),
     FOREIGN KEY (project_fuel_burn_limit_ba_scenario_id) REFERENCES
         subscenarios_project_fuel_burn_limit_balancing_areas
             (project_fuel_burn_limit_ba_scenario_id),
@@ -7391,6 +7445,30 @@ CREATE TABLE results_system_carbon_credits
     PRIMARY KEY (scenario_id, carbon_credits_zone, weather_iteration,
                  hydro_iteration, availability_iteration,
                  subproblem_id, stage_id, period)
+);
+
+DROP TABLE IF EXISTS results_carbon_credits_group;
+CREATE TABLE results_project_group_capacity
+(
+    scenario_id                                 INTEGER,
+    weather_iteration                           INTEGER,
+    hydro_iteration                             INTEGER,
+    availability_iteration                      INTEGER,
+    subproblem_id                               INTEGER,
+    stage_id                                    INTEGER,
+    carbon_credits_group                        VARCHAR(64),
+    period                                      INTEGER,
+    group_new_capacity                          FLOAT,
+    group_total_capacity                        FLOAT,
+    carbon_credits_group_buy_min                FLOAT,
+    carbon_credits_group_buy_max                FLOAT,
+    carbon_credits_group_buy_max_dual           FLOAT,
+    carbon_credits_group_buy_min_dual           FLOAT,
+    carbon_credits_group_buy_max_marginal_cost  FLOAT,
+    carbon_credits_group_buy_min_marginal_cost  FLOAT,
+    PRIMARY KEY (scenario_id, weather_iteration, hydro_iteration,
+                 availability_iteration, subproblem_id, stage_id,
+                 carbon_credits_group, period)
 );
 
 -- Energy target balance

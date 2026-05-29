@@ -228,6 +228,7 @@ def all_modules_list():
         "system.policy.carbon_credits.sell_and_buy_credits",
         "system.policy.carbon_credits.carbon_credits_balance",
         "system.policy.carbon_credits.consolidate_results",
+        "system.policy.carbon_credits.carbon_credits_group",
         "system.policy.fuel_burn_limits.aggregate_project_fuel_burn",
         "system.policy.fuel_burn_limits.fuel_burn_limit_balance",
         "system.policy.fuel_burn_limits.consolidate_results",
@@ -448,6 +449,9 @@ def optional_modules_list():
             "system.policy.carbon_credits.carbon_credits_balance",
             "system.policy.carbon_credits.consolidate_results",
             "objective.system.policy.aggregate_carbon_credit_sales_and_purchases",
+        ],
+        "carbon_credits_groups": [
+            "system.policy.carbon_credits.carbon_credits_group",
         ],
         "fuel_burn_limit": [
             "geography.fuel_burn_limit_balancing_areas",
