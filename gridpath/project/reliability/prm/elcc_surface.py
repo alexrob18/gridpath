@@ -103,7 +103,7 @@ def add_model_components(
         :param f:
         :return:
         """
-        if (prj, prm_z, p) in mod.PRJ_OPR_PRDS:
+        if (prj, p) in mod.PRJ_OPR_PRDS:
             return (
                 mod.elcc_surface_coefficient[surface, prj, prm_z, p, f]
                 * mod.prm_peak_load_mw[surface, prm_z, p]
