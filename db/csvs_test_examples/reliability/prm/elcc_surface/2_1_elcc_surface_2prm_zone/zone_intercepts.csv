@@ -1,5 +1,5 @@
 ﻿elcc_surface_name,prm_zone,period,facet,elcc_surface_intercept
 Wind_Solar,PRMZone1,2020,1,0
 Wind_Solar,PRMZone1,2020,2,0.004646
-Wind_Solar,PRMZone2,2020,1,0
-Wind_Solar,PRMZone2,2020,2,0.004646
+Wind_Solar,PRMZone2_1,2020,1,0
+Wind_Solar,PRMZone2_1,2020,2,0.004646
