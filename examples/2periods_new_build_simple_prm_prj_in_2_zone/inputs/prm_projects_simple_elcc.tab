@@ -11,7 +11,11 @@ Gas_CT_new	PRMZone1	2020.0	0.8
 Gas_CT_new	PRMZone1	2030.0	0.8
 Nuclear	PRMZone1	2020.0	0.8
 Nuclear	PRMZone1	2030.0	0.8
-Nuclear	PRMZone2	2020.0	0.8
-Nuclear	PRMZone2	2030.0	0.8
+Nuclear	PRMZone2_1	2020.0	0.8
+Nuclear	PRMZone2_1	2030.0	0.8
+Nuclear	PRMZone2_2	2020.0	0.8
+Nuclear	PRMZone2_2	2030.0	0.8
 Wind	PRMZone1	2020.0	0.8
 Wind	PRMZone1	2030.0	0.8
+Wind	PRMZone2_1	2020.0	0.8
+Wind	PRMZone2_1	2030.0	0.8
