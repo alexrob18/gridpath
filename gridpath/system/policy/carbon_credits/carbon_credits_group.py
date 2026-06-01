@@ -60,20 +60,36 @@ def add_model_components(
     +-------------------------------------------------------------------------+
     | Optional Input Params                                                   |
     +=========================================================================+
-    | | :code:`capacity_group_new_capacity_min`                               |
-    | | *Defined over*: :code:`CAPACITY_GROUP_PERIODS`                        |
+    | | :code:`carbon_credits_group_buy_min`                               |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                        |
     | | *Within*: :code:`NonNegativeReals`                                    |
     | | *Default*: :code:`0`                                                  |
     |                                                                         |
-    | The minimum amount of capacity (in MW) that must be built at projects   |
+    | The minimum amount of credits (in Mt CO2) that can be purchase          |
     | in this group in a given period.                                        |
     +-------------------------------------------------------------------------+
-    | | :code:`capacity_group_new_capacity_max`                               |
-    | | *Defined over*: :code:`CAPACITY_GROUP_PERIODS`                        |
+    | | :code:`carbon_credits_group_buy_max`                                  |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
     | | *Within*: :code:`NonNegativeReals`                                    |
     | | *Default*: :code:`inf`                                                |
     |                                                                         |
-    | The maximum amount of capacity (in MW) that may be built at projects    |
+    | The maximum amount of credits (in Mt CO2) that can be purchase          |
+    | in this group in a given period.                                        |
+    +-------------------------------------------------------------------------+
+    | | :code:`carbon_credits_group_sell_min`                                 |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
+    | | *Within*: :code:`NonNegativeReals`                                    |
+    | | *Default*: :code:`0`                                                  |
+    |                                                                         |
+    | The minimum amount of credits (in Mt CO2) that can be sold              |
+    | in this group in a given period.                                        |
+    +-------------------------------------------------------------------------+
+    | | :code:`carbon_credits_group_sell_max`                                 |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
+    | | *Within*: :code:`NonNegativeReals`                                    |
+    | | *Default*: :code:`inf`                                                |
+    |                                                                         |
+    | The maximum amount of credits (in Mt CO2) that can be sold              |
     | in this group in a given period.                                        |
     +-------------------------------------------------------------------------+
 
@@ -82,10 +98,15 @@ def add_model_components(
     +-------------------------------------------------------------------------+
     | Expressions                                                             |
     +=========================================================================+
-    | | :code:`Group_New_Capacity_in_Period`                                  |
-    | | *Defined over*: :code:`CAPACITY_GROUP_PERIODS`                        |
+    | | :code:`Group_Carbon_Credits_Buy_in_Period `                            |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
     |                                                                         |
-    | The new capacity built at projects in this group in this period.        |
+    | The Carbon credits purchased in this group in this period.              |
+    +-------------------------------------------------------------------------+
+    | | :code:`Group_Carbon_Credits_Sell_in_Period `                           |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
+    |                                                                         |
+    | The Carbon credits sold in this group in this period.                   |
     +-------------------------------------------------------------------------+
 
     |
@@ -93,216 +114,135 @@ def add_model_components(
     +-------------------------------------------------------------------------+
     | Constraints                                                             |
     +=========================================================================+
-    | | :code:`Max_Group_Capacity_Build_in_Period_Constraint`                          |
-    | | *Defined over*: :code:`CAPACITY_GROUP_PERIODS`                        |
+    | | :code:`Min_Group_Carbon_Credits_Buy_in_Period_Constraint`             |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
     |                                                                         |
-    | Limits the amount of new build in each group in each period.            |
+    | Requires the amount of credits purchased in each group in each period.  |
     +-------------------------------------------------------------------------+
-    | | :code:`Min_Group_Capacity_Build_in_Period_Constraint`                          |
-    | | *Defined over*: :code:`CAPACITY_GROUP_PERIODS`                        |
+    | | :code:`Max_Group_Carbon_Credits_Buy_in_Period_Constraint`             |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
     |                                                                         |
-    | Requires a certain amount of new build in each group in each period.    |
+    | Limits the amount of credits purchased in each group in each period.    |
+    +-------------------------------------------------------------------------+
+    | | :code:`Min_Group_Carbon_Credits_Sell_in_Period_Constraint`            |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
+    |                                                                         |
+    | Requires the amount of credits sold in each group in each period.       |
+    +-------------------------------------------------------------------------+
+    | | :code:`Max_Group_Carbon_Credits_Sell_in_Period_Constraint`            |
+    | | *Defined over*: :code:`CARBON_CREDITS_GROUP_PERIODS`                  |
+    |                                                                         |
+    | Limits a certain amount of credits sold  in each group in each period.  |
     +-------------------------------------------------------------------------+
 
     """
 
     # Sets
-    m.CAPACITY_GROUP_PERIODS = Set(dimen=2)
+    m.CARBON_CREDITS_GROUP_PERIODS = Set(dimen=2)
 
-    m.CAPACITY_GROUPS = Set(
+    m.CARBON_CREDITS_GROUPS = Set(
         initialize=lambda mod: sorted(
-            list(set([g for (g, p) in mod.CAPACITY_GROUP_PERIODS]))
+            list(set([g for (g, p) in mod.CARBON_CREDITS_GROUP_PERIODS]))
         )
     )
 
-    m.PROJECTS_IN_CAPACITY_GROUP = Set(m.CAPACITY_GROUPS, within=m.PROJECTS)
+    m.CARBON_CREDITS_IN_CARBON_CREDITS_GROUPS = Set(m.CARBON_CREDITS_GROUPS, within=m.CARBON_CREDITS_ZONES)
 
     # Params
-    m.capacity_group_new_capacity_min = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=0
+    m.carbon_credits_group_buy_min = Param(
+        m.CARBON_CREDITS_GROUP_PERIODS, within=NonNegativeReals, default=0
     )
-    m.capacity_group_new_capacity_max = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
+    m.carbon_credits_group_buy_max = Param(
+        m.CARBON_CREDITS_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
     )
-    m.capacity_group_total_capacity_min = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=0
+    m.carbon_credits_group_sell_min = Param(
+        m.CARBON_CREDITS_GROUP_PERIODS, within=NonNegativeReals, default=0
     )
-    m.capacity_group_total_capacity_max = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
+    m.carbon_credits_group_sell_max = Param(
+        m.CARBON_CREDITS_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
     )
-
-    m.energy_group_new_energy_min = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=0
-    )
-    m.energy_group_new_energy_max = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
-    )
-    m.energy_group_total_energy_min = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=0
-    )
-    m.energy_group_total_energy_max = Param(
-        m.CAPACITY_GROUP_PERIODS, within=NonNegativeReals, default=float("inf")
-    )
-
-    # Import needed capacity type modules
-    required_capacity_modules = get_required_subtype_modules(
-        scenario_directory=scenario_directory,
-        weather_iteration=weather_iteration,
-        hydro_iteration=hydro_iteration,
-        availability_iteration=availability_iteration,
-        subproblem=subproblem,
-        stage=stage,
-        which_type="capacity_type",
-    )
-
-    imported_capacity_modules = load_project_capacity_type_modules(
-        required_capacity_modules
-    )
-
-    # Get the new and total capacity/energy in the group for the respective
-    # expressions
-    def new_capacity_rule(mod, prj, prd):
-        cap_type = mod.capacity_type[prj]
-        # The capacity type modules check if this period is a "vintage" for
-        # this project and return 0 if not
-        if hasattr(imported_capacity_modules[cap_type], "new_capacity_rule"):
-            return imported_capacity_modules[cap_type].new_capacity_rule(mod, prj, prd)
-        else:
-            return cap_type_init.new_capacity_rule(mod, prj, prd)
-
-    def new_energy_rule(mod, prj, prd):
-        cap_type = mod.capacity_type[prj]
-        # The capacity type modules check if this period is a "vintage" for
-        # this project and return 0 if not
-        if hasattr(imported_capacity_modules[cap_type], "new_energy_rule"):
-            return imported_capacity_modules[cap_type].new_energy_rule(mod, prj, prd)
-        else:
-            return cap_type_init.new_energy_rule(mod, prj, prd)
-
-    def total_capacity_rule(mod, prj, prd):
-        cap_type = mod.capacity_type[prj]
-        # Return the capacity type's capacity rule if the project is
-        # operational in this timepoint; otherwise, return 0
-        if prd not in mod.OPR_PRDS_BY_PRJ[prj]:
-            return 0
-        else:
-            if hasattr(imported_capacity_modules[cap_type], "capacity_rule"):
-                return imported_capacity_modules[cap_type].capacity_rule(mod, prj, prd)
-            else:
-                return cap_type_init.capacity_rule(mod, prj, prd)
-
-    def total_energy_rule(mod, prj, prd):
-        cap_type = mod.capacity_type[prj]
-        # Return the capacity type's energy rule if the project is
-        # operational in this timepoint; otherwise, return 0
-        if prd not in mod.OPR_PRDS_BY_PRJ[prj]:
-            return 0
-        else:
-            if hasattr(imported_capacity_modules[cap_type], "energy_rule"):
-                return imported_capacity_modules[cap_type].energy_rule(mod, prj, prd)
-            else:
-                return cap_type_init.energy_rule(mod, prj, prd)
 
     # Expressions
-    def group_new_capacity_rule(mod, grp, prd):
+    def group_carbon_credits_buy_in_period_rule(mod, grp, prd):
         return sum(
-            new_capacity_rule(mod, prj, prd)
-            for prj in mod.PROJECTS_IN_CAPACITY_GROUP[grp]
+            mod.Buy_Carbon_Credits[cred_z, prd]
+            for cred_z in mod.CARBON_CREDITS_IN_CARBON_CREDITS_GROUPS[grp]
         )
 
-    m.Group_New_Capacity_in_Period = Expression(
-        m.CAPACITY_GROUP_PERIODS, rule=group_new_capacity_rule
+    m.Group_Carbon_Credits_Buy_in_Period = Expression(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=group_carbon_credits_buy_in_period_rule
     )
 
-    def group_new_energy_rule(mod, grp, prd):
+    def group_carbon_credits_sell_in_period_rule(mod, grp, prd):
         return sum(
-            new_energy_rule(mod, prj, prd)
-            for prj in mod.PROJECTS_IN_CAPACITY_GROUP[grp]
+            mod.Sell_Carbon_Credits[cred_z, prd]
+            for cred_z in mod.CARBON_CREDITS_IN_CARBON_CREDITS_GROUPS[grp]
         )
 
-    m.Group_New_Energy_in_Period = Expression(
-        m.CAPACITY_GROUP_PERIODS, rule=group_new_energy_rule
-    )
-
-    def group_total_capacity_rule(mod, grp, prd):
-        return sum(
-            total_capacity_rule(mod, prj, prd)
-            for prj in mod.PROJECTS_IN_CAPACITY_GROUP[grp]
-        )
-
-    m.Group_Total_Capacity_in_Period = Expression(
-        m.CAPACITY_GROUP_PERIODS, rule=group_total_capacity_rule
-    )
-
-    def group_total_energy_rule(mod, grp, prd):
-        return sum(
-            total_energy_rule(mod, prj, prd)
-            for prj in mod.PROJECTS_IN_CAPACITY_GROUP[grp]
-        )
-
-    m.Group_Total_Energy_in_Period = Expression(
-        m.CAPACITY_GROUP_PERIODS, rule=group_total_energy_rule
+    m.Group_Carbon_Credits_Sell_in_Period = Expression(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=group_carbon_credits_sell_in_period_rule
     )
 
     # Constraints
     # Capacity build
     # Limit the min and max amount of new build in a group-period
-    m.Max_Group_Capacity_Build_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=new_capacity_max_rule
+    m.Max_Group_Carbon_Credits_Buy_in_Period_Constraint = Constraint(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=carbon_credits_group_buy_max_rule
     )
 
-    m.Min_Group_Capacity_Build_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=new_capacity_min_rule
+    m.Min_Group_Carbon_Credits_Buy_in_Period_Constraint = Constraint(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=carbon_credits_group_buy_min_rule
     )
 
     # Limit the min and max amount of total capacity in a group-period
-    m.Max_Group_Total_Capacity_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=total_capacity_max_rule
+    m.Max_Group_Carbon_Credits_Sell_in_Period_Constraint = Constraint(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=carbon_credits_group_sell_max_rule
     )
 
-    m.Min_Group_Total_Capacity_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=total_capacity_min_rule
-    )
-
-    # Energy procured
-    # Limit the min and max amount of new build in a group-period
-    m.Max_Group_Energy_Build_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=new_energy_max_rule
-    )
-
-    m.Min_Group_Energy__Build_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=new_energy_min_rule
-    )
-
-    # Limit the min and max amount of total energy in a group-period
-    m.Max_Group_Total_Energy_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=total_energy_max_rule
-    )
-
-    m.Min_Group_Total_Energy_in_Period_Constraint = Constraint(
-        m.CAPACITY_GROUP_PERIODS, rule=total_energy_min_rule
+    m.Min_Group_Carbon_Credits_Sell_in_Period_Constraint = Constraint(
+        m.CARBON_CREDITS_GROUP_PERIODS, rule=carbon_credits_group_sell_min_rule
     )
 
 
 # Constraint Formulation Rules
 ###############################################################################
-def new_capacity_max_rule(mod, grp, prd):
-    if mod.capacity_group_new_capacity_max[grp, prd] == float("inf"):
+def carbon_credits_group_buy_max_rule(mod, grp, prd):
+    if mod.carbon_credits_group_buy_max[grp, prd] == float("inf"):
         return Constraint.Feasible
     else:
         return (
-            mod.Group_New_Capacity_in_Period[grp, prd]
-            <= mod.capacity_group_new_capacity_max[grp, prd]
+            mod.Group_Carbon_Credits_Buy_in_Period[grp, prd]
+            <= mod.carbon_credits_group_buy_max[grp, prd]
         )
 
 
-def new_capacity_min_rule(mod, grp, prd):
-    if mod.capacity_group_new_capacity_min[grp, prd] == 0:
+def carbon_credits_group_buy_min_rule(mod, grp, prd):
+    if mod.carbon_credits_group_buy_min[grp, prd] == 0:
         return Constraint.Feasible
     else:
         return (
-            mod.Group_New_Capacity_in_Period[grp, prd]
-            >= mod.capacity_group_new_capacity_min[grp, prd]
+            mod.Group_Carbon_Credits_Buy_in_Period[grp, prd]
+            >= mod.carbon_credits_group_buy_min[grp, prd]
+        )
+
+
+def carbon_credits_group_sell_max_rule(mod, grp, prd):
+    if mod.carbon_credits_group_sell_max[grp, prd] == float("inf"):
+        return Constraint.Feasible
+    else:
+        return (
+            mod.Group_Carbon_Credits_Sell_in_Period[grp, prd]
+            <= mod.carbon_credits_group_sell_max[grp, prd]
+        )
+
+
+def carbon_credits_group_sell_min_rule(mod, grp, prd):
+    if mod.carbon_credits_group_sell_min[grp, prd] == 0:
+        return Constraint.Feasible
+    else:
+        return (
+            mod.Group_Carbon_Credits_Sell_in_Period[grp, prd]
+            >= mod.carbon_credits_group_sell_min[grp, prd]
         )
 
 
@@ -338,10 +278,12 @@ def load_model_data(
     if os.path.exists(req_file):
         data_portal.load(
             filename=req_file,
-            index=m.CAPACITY_GROUP_PERIODS,
+            index=m.CARBON_CREDITS_GROUP_PERIODS,
             param=(
-                m.capacity_group_new_capacity_min,
-                m.capacity_group_new_capacity_max,
+                m.carbon_credits_group_buy_min,
+                m.carbon_credits_group_buy_max,
+                m.carbon_credits_group_sell_min,
+                m.carbon_credits_group_sell_max,
             ),
         )
 
@@ -356,12 +298,12 @@ def load_model_data(
         "carbon_credits_group_credits_zone.tab",
     )
     if os.path.exists(prj_file):
-        proj_groups_df = pd.read_csv(prj_file, delimiter="\t")
-        proj_groups_dict = {
-            g: v["project"].tolist()
-            for g, v in proj_groups_df.groupby("carbon_credits_group")
+        cred_groups_df = pd.read_csv(prj_file, delimiter="\t")
+        cred_groups_dict = {
+            g: v["carbon_credits_zone"].tolist()
+            for g, v in cred_groups_df.groupby("carbon_credits_group")
         }
-        data_portal.data()["PROJECTS_IN_CAPACITY_GROUP"] = proj_groups_dict
+        data_portal.data()["CARBON_CREDITS_IN_CARBON_CREDITS_GROUPS"] = cred_groups_dict
 
 
 def export_results(
@@ -414,15 +356,22 @@ def export_results(
             writer = csv.writer(f)
             writer.writerow(
                 [
-                    "capacity_group",
+                    "carbon_credits_group",
                     "period",
-                    "group_new_capacity",
-                    "capacity_group_new_capacity_min",
-                    "capacity_group_new_capacity_max",
-                    "capacity_group_new_max_dual",
-                    "capacity_group_new_min_dual",
-                    "capacity_group_new_max_marginal_cost",
-                    "capacity_group_new_min_marginal_cost",
+                    "carbon_credits_group_buy",
+                    "carbon_credits_group_sell",
+                    "carbon_credits_group_buy_min",
+                    "carbon_credits_group_buy_max",
+                    "carbon_credits_group_sell_min",
+                    "carbon_credits_group_sell_max",
+                    "carbon_credits_group_buy_min_dual",
+                    "carbon_credits_group_buy_max_dual",
+                    "carbon_credits_group_sell_min_dual",
+                    "carbon_credits_group_sell_max_dual",
+                    "carbon_credits_group_buy_min_marginal_cost",
+                    "carbon_credits_group_buy_max_marginal_cost",
+                    "carbon_credits_group_sell_min_marginal_cost",
+                    "carbon_credits_group_sell_max_marginal_cost",
                 ]
             )
 
@@ -431,21 +380,41 @@ def export_results(
                     [
                         grp,
                         prd,
-                        value(m.Group_New_Capacity_in_Period[grp, prd]),
-                        m.capacity_group_new_capacity_min[grp, prd],
-                        m.capacity_group_new_capacity_max[grp, prd],
+                        value(m.Group_Carbon_Credits_Buy_in_Period[grp, prd]),
+                        value(m.Group_Carbon_Credits_Sell_in_Period[grp, prd]),
+                        value(m.carbon_credits_group_buy_min[grp, prd]),
+                        value(m.carbon_credits_group_buy_max[grp, prd]),
+                        value(m.carbon_credits_group_sell_min[grp, prd]),
+                        value(m.carbon_credits_group_sell_max[grp, prd]),
+
                         (
                             duals_wrapper(
                                 m,
                                 getattr(
-                                    m, "Max_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Min_Group_Carbon_Credits_Buy_in_Period_Constraint"
+                                )[grp, prd],
+                            )
+                            if (grp, prd)
+                               in [
+                                   idx
+                                   for idx in getattr(
+                                    m, "Min_Group_Carbon_Credits_Buy_in_Period_Constraint"
+                                )
+                               ]
+                            else None
+                        ),
+                        (
+                            duals_wrapper(
+                                m,
+                                getattr(
+                                    m, "Max_Group_Carbon_Credits_Buy_in_Period_Constraint"
                                 )[grp, prd],
                             )
                             if (grp, prd)
                             in [
                                 idx
                                 for idx in getattr(
-                                    m, "Max_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Max_Group_Carbon_Credits_Buy_in_Period_Constraint"
                                 )
                             ]
                             else None
@@ -454,14 +423,30 @@ def export_results(
                             duals_wrapper(
                                 m,
                                 getattr(
-                                    m, "Min_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Min_Group_Carbon_Credits_Sell_in_Period_Constraint"
                                 )[grp, prd],
                             )
                             if (grp, prd)
                             in [
                                 idx
                                 for idx in getattr(
-                                    m, "Min_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Min_Group_Carbon_Credits_Sell_in_Period_Constraint"
+                                )
+                            ]
+                            else None
+                        ),
+                        (
+                            duals_wrapper(
+                                m,
+                                getattr(
+                                    m, "Max_Group_Carbon_Credits_Sell_in_Period_Constraint"
+                                )[grp, prd],
+                            )
+                            if (grp, prd)
+                            in [
+                                idx
+                                for idx in getattr(
+                                    m, "Max_Group_Carbon_Credits_Sell_in_Period_Constraint"
                                 )
                             ]
                             else None
@@ -472,7 +457,27 @@ def export_results(
                                     m,
                                     getattr(
                                         m,
-                                        "Max_Group_Capacity_Build_in_Period_Constraint",
+                                        "Min_Group_Carbon_Credits_Buy_in_Period_Constraint",
+                                    )[grp, prd],
+                                ),
+                                m.period_objective_coefficient[prd],
+                            )
+                            if (grp, prd)
+                               in [
+                                   idx
+                                   for idx in getattr(
+                                    m, "Min_Group_Carbon_Credits_Buy_in_Period_Constraint"
+                                )
+                               ]
+                            else None
+                        ),
+                        (
+                            none_dual_type_error_wrapper(
+                                duals_wrapper(
+                                    m,
+                                    getattr(
+                                        m,
+                                        "Max_Group_Carbon_Credits_Buy_in_Period_Constraint",
                                     )[grp, prd],
                                 ),
                                 m.period_objective_coefficient[prd],
@@ -481,7 +486,7 @@ def export_results(
                             in [
                                 idx
                                 for idx in getattr(
-                                    m, "Max_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Max_Group_Carbon_Credits_Buy_in_Period_Constraint"
                                 )
                             ]
                             else None
@@ -492,7 +497,7 @@ def export_results(
                                     m,
                                     getattr(
                                         m,
-                                        "Min_Group_Capacity_Build_in_Period_Constraint",
+                                        "Min_Group_Carbon_Credits_Sell_in_Period_Constraint",
                                     )[grp, prd],
                                 ),
                                 m.period_objective_coefficient[prd],
@@ -501,7 +506,27 @@ def export_results(
                             in [
                                 idx
                                 for idx in getattr(
-                                    m, "Min_Group_Capacity_Build_in_Period_Constraint"
+                                    m, "Min_Group_Carbon_Credits_Sell_in_Period_Constraint"
+                                )
+                            ]
+                            else None
+                        ),
+                        (
+                            none_dual_type_error_wrapper(
+                                duals_wrapper(
+                                    m,
+                                    getattr(
+                                        m,
+                                        "Max_Group_Carbon_Credits_Sell_in_Period_Constraint",
+                                    )[grp, prd],
+                                ),
+                                m.period_objective_coefficient[prd],
+                            )
+                            if (grp, prd)
+                            in [
+                                idx
+                                for idx in getattr(
+                                    m, "Max_Group_Carbon_Credits_Sell_in_Period_Constraint"
                                 )
                             ]
                             else None
@@ -533,38 +558,36 @@ def get_inputs_from_database(
     """
 
     c1 = conn.cursor()
-    cap_grp_reqs = c1.execute(
+    cred_grp_reqs = c1.execute(
         """
-        SELECT capacity_group, period,
-        capacity_group_new_capacity_min, capacity_group_new_capacity_max,
-        capacity_group_total_capacity_min, capacity_group_total_capacity_max,
-        energy_group_new_energy_min, energy_group_new_energy_max,
-        energy_group_total_energy_min, energy_group_total_energy_max
+        SELECT carbon_credits_group, period,
+        carbon_credits_group_buy_min, carbon_credits_group_buy_max,
+        carbon_credits_group_sell_min, carbon_credits_group_sell_max,
         FROM inputs_project_capacity_group_requirements
-        WHERE project_capacity_group_requirement_scenario_id = {}
+        WHERE carbon_credits_group_requirement_scenario_id = {}
         """.format(
-            subscenarios.PROJECT_CAPACITY_GROUP_REQUIREMENT_SCENARIO_ID
+            subscenarios.CARBON_CREDITS_GROUP_REQUIREMENT_SCENARIO_ID
         )
     )
 
     c2 = conn.cursor()
     cap_grp_prj = c2.execute(
         """
-        SELECT capacity_group, project
-        FROM inputs_project_capacity_groups
-        WHERE project_capacity_group_scenario_id = {prj_cap_group_sid}
-        AND project in (
-            SELECT DISTINCT project
-            FROM inputs_project_portfolios
-            WHERE project_portfolio_scenario_id = {prj_portfolio_sid}
+        SELECT carbon_credits_group, carbon_credits_zone
+        FROM inputs_carbon_credits_groups
+        WHERE carbon_credits_group_scenario_id = {carb_cred_group_id}
+        AND carbon_credits_zone in (
+            SELECT DISTINCT carbon_credits_zone
+            FROM inputs_geography_carbon_credits_zones
+            WHERE carbon_credits_zone_scenario_id = {carb_cred_zone_id}
             )
         """.format(
-            prj_cap_group_sid=subscenarios.PROJECT_CAPACITY_GROUP_SCENARIO_ID,
-            prj_portfolio_sid=subscenarios.PROJECT_PORTFOLIO_SCENARIO_ID,
+            carb_cred_group_id=subscenarios.CARBON_CREDITS_GROUP_SCENARIO_ID,
+            carb_cred_zone_id=subscenarios.CARBON_CREDITS_ZONE_SCENARIO_ID,
         )
     )
 
-    return cap_grp_reqs, cap_grp_prj
+    return cred_grp_reqs, cap_grp_prj
 
 
 def write_model_inputs(
@@ -602,7 +625,7 @@ def write_model_inputs(
     )
 
     # Write the input files only if a subscenario is specified
-    if subscenarios.PROJECT_CAPACITY_GROUP_REQUIREMENT_SCENARIO_ID != "NULL":
+    if subscenarios.CARBON_CREDITS_GROUP_REQUIREMENT_SCENARIO_ID != "NULL":
         with open(
             os.path.join(
                 scenario_directory,
@@ -612,7 +635,7 @@ def write_model_inputs(
                 subproblem,
                 stage,
                 "inputs",
-                "capacity_group_requirements.tab",
+                "carbon_credits_group_requirements.tab",
             ),
             "w",
             newline="",
@@ -622,16 +645,12 @@ def write_model_inputs(
             # Write header
             writer.writerow(
                 [
-                    "capacity_group",
+                    "carbon_credits_group",
                     "period",
-                    "capacity_group_new_capacity_min",
-                    "capacity_group_new_capacity_max",
-                    "capacity_group_total_capacity_min",
-                    "capacity_group_total_capacity_max",
-                    "energy_group_new_energy_min",
-                    "energy_group_new_energy_max",
-                    "energy_group_total_energy_min",
-                    "energy_group_total_energy_max",
+                    "carbon_credits_group_buy_min",
+                    "carbon_credits_group_buy_max",
+                    "carbon_credits_group_sell_min",
+                    "carbon_credits_group_sell_max",
                 ]
             )
 
@@ -639,7 +658,7 @@ def write_model_inputs(
                 replace_nulls = ["." if i is None else i for i in row]
                 writer.writerow(replace_nulls)
 
-    if subscenarios.PROJECT_CAPACITY_GROUP_SCENARIO_ID != "NULL":
+    if subscenarios.CARBON_CREDITS_GROUP_SCENARIO_ID != "NULL":
         with open(
             os.path.join(
                 scenario_directory,
@@ -649,7 +668,7 @@ def write_model_inputs(
                 subproblem,
                 stage,
                 "inputs",
-                "capacity_group_projects.tab",
+                "carbon_credits_group_credits_zone.tab",
             ),
             "w",
             newline="",
@@ -657,7 +676,7 @@ def write_model_inputs(
             writer = csv.writer(prj_file, delimiter="\t", lineterminator="\n")
 
             # Write header
-            writer.writerow(["capacity_group", "project"])
+            writer.writerow(["carbon_credits_group", "carbon_credits_zone"])
 
             for row in cap_grp_prj:
                 writer.writerow(row)
@@ -673,14 +692,25 @@ def save_duals(
     instance,
     dynamic_components,
 ):
-    instance.constraint_indices["Max_Group_Capacity_Build_in_Period_Constraint"] = [
-        "capacity_group",
+    instance.constraint_indices["Max_Group_Carbon_Credits_Buy_in_Period_Constraint"] = [
+        "carbon_credits_group",
         "period",
         "dual",
     ]
 
-    instance.constraint_indices["Min_Group_Capacity_Build_in_Period_Constraint"] = [
-        "capacity_group",
+    instance.constraint_indices["Min_Group_Carbon_Credits_Buy_in_Period_Constraint"] = [
+        "carbon_credits_group",
+        "period",
+        "dual",
+    ]
+    instance.constraint_indices["Max_Group_Carbon_Credits_Sell_in_Period_Constraint"] = [
+        "carbon_credits_group",
+        "period",
+        "dual",
+    ]
+
+    instance.constraint_indices["Min_Group_Carbon_Credits_Sell_in_Period_Constraint"] = [
+        "carbon_credits_group",
         "period",
         "dual",
     ]
