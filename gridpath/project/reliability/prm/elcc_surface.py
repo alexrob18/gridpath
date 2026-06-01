@@ -103,7 +103,7 @@ def add_model_components(
         :param f:
         :return:
         """
-        if (prj, prm_z, p) in mod.PRJ_OPR_PRDS:
+        if (prj, p) in mod.PRJ_OPR_PRDS:
             return (
                 mod.elcc_surface_coefficient[surface, prj, prm_z, p, f]
                 * mod.prm_peak_load_mw[surface, prm_z, p]
@@ -443,8 +443,8 @@ def write_model_inputs(
 
     # Make a dict for easy access
     prj_contr_cf_dict = dict()
-    for prj, contr, cf in project_contr_cf:
-        prj_contr_cf_dict[str(prj)] = (contr, cf)
+    for prj, prm_z, contr, cf in project_contr_cf:
+        prj_contr_cf_dict[(str(prj), prm_z)] = (contr, cf)
 
     with open(
         os.path.join(
@@ -472,16 +472,17 @@ def write_model_inputs(
         # Append correct values
         for row in reader:
             prj = row[0]
+            prm = row[1]
             # If project specified add the values
-            if prj in list(prj_contr_cf_dict.keys()):
+            if (prj, prm) in list(prj_contr_cf_dict.keys()):
                 row.append(
-                    prj_contr_cf_dict[prj][0]
-                    if prj_contr_cf_dict[prj][0] is not None
+                    prj_contr_cf_dict[(prj, prm)][0]
+                    if prj_contr_cf_dict[(prj, prm)][0] is not None
                     else "."
                 )
                 row.append(
-                    prj_contr_cf_dict[prj][1]
-                    if prj_contr_cf_dict[prj][1] is not None
+                    prj_contr_cf_dict[(prj, prm)][1]
+                    if prj_contr_cf_dict[(prj, prm)][1] is not None
                     else "."
                 )
                 new_rows.append(row)
