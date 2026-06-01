@@ -5,9 +5,9 @@ Wind_Solar,Wind,PRMZone1,2020,1,1.248933
 Wind_Solar,Solar_BTM,PRMZone1,2020,2,1.337115
 Wind_Solar,Solar,PRMZone1,2020,2,1.337115
 Wind_Solar,Wind,PRMZone1,2020,2,1.337115
-Wind_Solar,Solar_BTM,PRMZone2,2020,1,1.248933
-Wind_Solar,Solar,PRMZone2,2020,1,1.248933
-Wind_Solar,Wind,PRMZone2,2020,1,1.248933
-Wind_Solar,Solar_BTM,PRMZone2,2020,2,1.337115
-Wind_Solar,Solar,PRMZone2,2020,2,1.337115
-Wind_Solar,Wind,PRMZone2,2020,2,1.337115
+Wind_Solar,Solar_BTM,PRMZone2_1,2020,1,1.248933
+Wind_Solar,Solar,PRMZone2_1,2020,1,1.248933
+Wind_Solar,Wind,PRMZone2_1,2020,1,1.248933
+Wind_Solar,Solar_BTM,PRMZone2_1,2020,2,1.337115
+Wind_Solar,Solar,PRMZone2_1,2020,2,1.337115
+Wind_Solar,Wind,PRMZone2_1,2020,2,1.337115

@@ -1,6 +1,7 @@
 project,prm_zone
 Nuclear,PRMZone1
-Nuclear,PRMZone2
+Nuclear,PRMZone2_1
+Nuclear,PRMZone2_2
 Coal,PRMZone1
 Gas_CCGT,PRMZone1
 Gas_CT,PRMZone1
@@ -21,3 +22,6 @@ Gas_CT_new_z2,PRMZone1
 Solar_z2,PRMZone1
 Clunky_Old_Gen,PRMZone1
 Wind_new,PRMZone1
+Solar_BTM,PRMZone2_1
+Solar,PRMZone2_1
+Wind,PRMZone2_1

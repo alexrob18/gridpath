@@ -1,0 +1,5 @@
+transmission_line,prm_zone_from,prm_zone_to
+Tx_new,PRMZone1,PRMZone2_1
+Tx_new,PRMZone1,PRMZone2_2
+Tx_new,PRMZone2_1,PRMZone1
+Tx_new,PRMZone2_2,PRMZone1
