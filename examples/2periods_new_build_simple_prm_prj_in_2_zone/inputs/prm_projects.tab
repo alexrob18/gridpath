@@ -1,9 +1,11 @@
-project	prm_zone	prm_type
-Coal	PRMZone1	fully_deliverable
-Gas_CCGT	PRMZone1	fully_deliverable
-Gas_CCGT_new	PRMZone1	energy_only_allowed
-Gas_CT	PRMZone1	fully_deliverable
-Gas_CT_new	PRMZone1	energy_only_allowed
-Nuclear	PRMZone1	fully_deliverable
-Nuclear	PRMZone2	fully_deliverable
-Wind	PRMZone1	fully_deliverable
+project	prm_zone	prm_type	elcc_surface_name	elcc_surface_cap_factor
+Coal	PRMZone1	fully_deliverable	.	.
+Gas_CCGT	PRMZone1	fully_deliverable	.	.
+Gas_CCGT_new	PRMZone1	energy_only_allowed	.	.
+Gas_CT	PRMZone1	fully_deliverable	.	.
+Gas_CT_new	PRMZone1	energy_only_allowed	.	.
+Nuclear	PRMZone1	fully_deliverable	.	.
+Nuclear	PRMZone2_1	fully_deliverable	.	.
+Nuclear	PRMZone2_2	fully_deliverable	.	.
+Wind	PRMZone1	fully_deliverable	Wind_Solar	0.282768082
+Wind	PRMZone2_1	fully_deliverable	Wind_Solar	0.282768082

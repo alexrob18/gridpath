@@ -1,2 +1,5 @@
 prm_zone	prm_capacity_transfer_zone	period	min_transfer_powerunit	max_transfer_powerunit	capacity_transfer_cost_per_powerunit_yr
-PRMZone1	PRMZone2	2020	0.0	999.0	.
+PRMZone1	PRMZone2_1	2020	0.0	999.0	.
+PRMZone1	PRMZone2_2	2030	0.0	999.0	.
+PRMZone2_1	PRMZone1	2020	0.0	999.0	.
+PRMZone2_2	PRMZone1	2030	0.0	999.0	.

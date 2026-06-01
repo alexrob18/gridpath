@@ -1,1 +1,1 @@
-infeasible
+optimal
