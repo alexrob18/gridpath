@@ -202,15 +202,14 @@ def add_model_components(
     def transfer_simple_capacity_only_rule(mod, prm_z, prd):
         if (prm_z, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT:
             return (
-                    sum(
-                        mod.Transfer_Capacity_Contribution[prm_z_from, prm_z_to, prd]
-                        for (prm_z_from, prm_z_to) in mod.PRM_ZONES_CAPACITY_TRANSFER_ZONES
-                        if prm_z_from == prm_z
-                        and (prm_z_from, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
-                        and (prm_z_to, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
-
-                    )
-                    <= mod.Total_PRM_Simple_Contribution_MW[prm_z, prd]
+                sum(
+                    mod.Transfer_Capacity_Contribution[prm_z_from, prm_z_to, prd]
+                    for (prm_z_from, prm_z_to) in mod.PRM_ZONES_CAPACITY_TRANSFER_ZONES
+                    if prm_z_from == prm_z
+                    and (prm_z_from, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
+                    and (prm_z_to, prd) in mod.PRM_ZONE_PERIODS_WITH_REQUIREMENT
+                )
+                <= mod.Total_PRM_Simple_Contribution_MW[prm_z, prd]
             )
         else:
             return Constraint.Skip
