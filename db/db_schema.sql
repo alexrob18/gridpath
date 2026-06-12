@@ -5650,6 +5650,7 @@ CREATE TABLE scenarios
     of_carbon_tax                                               INTEGER,
     of_performance_standard                                     INTEGER,
     of_carbon_credits                                           INTEGER,
+    of_carbon_credits_groups                                    INTEGER,
     of_fuel_burn_limit                                          INTEGER,
     of_subsidies                                                INTEGER,
     of_prm                                                      INTEGER,
@@ -5711,8 +5712,8 @@ CREATE TABLE scenarios
     project_carbon_credits_purchase_zone_scenario_id            INTEGER,
     project_carbon_credits_purchase_limits_scenario_id          INTEGER,
     project_carbon_credits_scenario_id                          INTEGER,
-    project_carbon_credits_group_requirement_scenario_id        INTEGER,
-    project_carbon_credits_group_scenario_id                    INTEGER,
+    carbon_credits_group_requirement_scenario_id                INTEGER,
+    carbon_credits_group_scenario_id                            INTEGER,
     project_fuel_burn_limit_ba_scenario_id                      INTEGER,
     fuel_fuel_burn_limit_ba_scenario_id                         INTEGER,
     project_policy_zone_scenario_id                             INTEGER,
@@ -5912,12 +5913,12 @@ CREATE TABLE scenarios
     FOREIGN KEY (project_carbon_credits_scenario_id) REFERENCES
         subscenarios_project_carbon_credits
             (project_carbon_credits_scenario_id),
-    FOREIGN KEY (project_carbon_credits_group_scenario_id) REFERENCES
-        subscenarios_project_carbon_credits_groups
-            (project_carbon_credits_group_scenario_id),
-    FOREIGN KEY (project_carbon_credits_group_requirement_scenario_id) REFERENCES
-        subscenarios_project_carbon_credits_group_requirements
-            (project_carbon_credits_group_requirement_scenario_id),
+    FOREIGN KEY (carbon_credits_group_scenario_id) REFERENCES
+        subscenarios_carbon_credits_groups
+            (carbon_credits_group_scenario_id),
+    FOREIGN KEY (carbon_credits_group_requirement_scenario_id) REFERENCES
+        subscenarios_carbon_credits_group_requirements
+            (carbon_credits_group_requirement_scenario_id),
     FOREIGN KEY (project_fuel_burn_limit_ba_scenario_id) REFERENCES
         subscenarios_project_fuel_burn_limit_balancing_areas
             (project_fuel_burn_limit_ba_scenario_id),
@@ -7450,7 +7451,7 @@ CREATE TABLE results_system_carbon_credits
 );
 
 DROP TABLE IF EXISTS results_carbon_credits_group;
-CREATE TABLE results_project_group_capacity
+CREATE TABLE results_carbon_credits_group
 (
     scenario_id                                 INTEGER,
     weather_iteration                           INTEGER,
