@@ -404,7 +404,7 @@ def main(args=None, lic_queue_and_worker_timmer=None):
 
     if lic_queue_and_worker_timmer is not None:
         print("waiting for DB_reader")
-        with lic_queue_and_worker_timmer[1]:
+        with lic_queue_and_worker_timmer[2]:
             if not skip_import_results and not parsed_args.skip_import_results:
                 try:
                     import_scenario_results.main(args=args)
