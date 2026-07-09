@@ -390,11 +390,14 @@ def run_optimization_for_subproblem_stage(
 
                 if lic_queue_and_worker_timmer is not None:
                     print("waiting for license")
+                    lic_queue_and_worker_timmer[0].acquire()
+                    lic_queue_and_worker_timmer[1].value = 1
                     with lic_queue_and_worker_timmer[0]:
                         solved_instance, results = solve_problem(
                             parsed_arguments=parsed_arguments,
                             instance=instance,
                         )
+                    lic_queue_and_worker_timmer[1].value = 0
                 else:
                     solved_instance, results = solve_problem(
                         parsed_arguments=parsed_arguments,
