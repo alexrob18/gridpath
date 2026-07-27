@@ -51,3 +51,13 @@ pip install .[all]
 ```
 
 **NOTE:** If you plan to edit the GridPath code, you should install with the `-e` flag.
+
+
+# Citation
+If you use GridPath, please cite it as follows (APA):
+
+> Mileva, A., De Moor, G., Deshmukh, R., & The GridPath Contributors. (2026).
+> *GridPath* (Version 2026.7.0) [Computer software]. https://doi.org/10.5281/zenodo.5822994
+
+Citation metadata is also available in machine-readable form in
+[CITATION.cff](CITATION.cff).
