@@ -57,7 +57,4 @@ pip install .[all]
 If you use GridPath, please cite it as follows (APA):
 
 > Mileva, A., De Moor, G., Deshmukh, R., & The GridPath Contributors. (2026).
-> *GridPath* (Version 2026.7.0) [Computer software]. https://doi.org/10.5281/zenodo.5822994
-
-Citation metadata is also available in machine-readable form in
-[CITATION.cff](CITATION.cff).
+> *GridPath* (Version 2026.7.1) [Computer software]. https://doi.org/10.5281/zenodo.5822994
