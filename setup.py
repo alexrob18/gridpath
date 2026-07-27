@@ -30,7 +30,15 @@ extras_coverage = [
 
 extras_gurobi = ["gurobipy"]  # Gurobi Python interface
 
-extras_all = extras_doc + extras_black + extras_coverage + extras_gurobi
+extras_parallel_tests = [
+    "pytest",  # test runner (collects the unittest suite as is)
+    "pytest-xdist",  # parallel test execution (see scripts/run_tests_parallel.py)
+    "pytest-cov",  # coverage measurement that reaches the xdist workers
+]
+
+extras_all = (
+    extras_doc + extras_black + extras_coverage + extras_gurobi + extras_parallel_tests
+)
 
 setup(
     name="GridPath",
@@ -70,6 +78,7 @@ setup(
         "all": extras_all,
         "coverage": extras_coverage,
         "gurobi": extras_gurobi,
+        "parallel_tests": extras_parallel_tests,
     },
     include_package_data=True,
     entry_points={
