@@ -82,6 +82,40 @@ def add_model_components(
         m.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET, rule=energy_target_rule
     )
 
+    m.Horizon_Energy_Limit_Shortage_MWh = Var(
+        m.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET, within=NonNegativeReals
+    )
+
+    def violation_limit_expression_rule(mod, z, bt, h):
+        if mod.energy_limit_allow_violation[z]:
+            return mod.Horizon_Energy_Limit_Shortage_MWh[z, bt, h]
+        else:
+            return 0
+
+    m.Horizon_Energy_Limit_Shortage_MWh_Expression = Expression(
+        m.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET,
+        rule=violation_limit_expression_rule,
+    )
+
+    def energy_limit_rule(mod, z, bt, h):
+        """
+        Total delivered energy-target-eligible energy must exceed target
+        :param mod:
+        :param z:
+        :param bt:
+        :param h:
+        :return:
+        """
+        return (
+            mod.Total_Delivered_Horizon_Energy_Target_Energy_MWh[z, bt, h]
+            - mod.Horizon_Energy_Limit_Shortage_MWh_Expression[z, bt, h]
+            <= mod.Horizon_Energy_Limit[z, bt, h]
+        )
+
+    m.Horizon_Energy_Limit_Constraint = Constraint(
+        m.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET, rule=energy_limit_rule
+    )
+
 
 def export_results(
     scenario_directory,
@@ -105,12 +139,16 @@ def export_results(
 
     results_columns = [
         "energy_target_mwh",
+        "energy_limit_mwh",
         "total_energy_target_energy_mwh",
         "fraction_of_energy_target_met",
         "fraction_of_energy_target_energy_curtailed",
         "energy_target_shortage_mwh",
-        "dual",
+        "dual_target",
         "energy_target_marginal_cost_per_mwh",
+        "energy_limit_shortage_mwh",
+        "dual_limit",
+        "energy_limit_marginal_cost_per_mwh",
     ]
     data = [
         [
@@ -118,6 +156,7 @@ def export_results(
             bt,
             h,
             value(m.Horizon_Energy_Target[z, bt, h]),
+            value(m.Horizon_Energy_Limit[z, bt, h]),
             value(m.Total_Delivered_Horizon_Energy_Target_Energy_MWh[z, bt, h])
             + value(m.Total_Curtailed_Horizon_Energy_Target_Energy_MWh[z, bt, h]),
             (
@@ -163,6 +202,26 @@ def export_results(
                 in [idx for idx in getattr(m, "Horizon_Energy_Target_Constraint")]
                 else None
             ),
+            value(m.Horizon_Energy_Limit_Shortage_MWh_Expression[z, bt, h]),
+            (
+                duals_wrapper(
+                    m, getattr(m, "Horizon_Energy_Limit_Constraint")[z, bt, h]
+                )
+                if (z, bt, h)
+                in [idx for idx in getattr(m, "Horizon_Energy_Limit_Constraint")]
+                else None
+            ),
+            (
+                none_dual_type_error_wrapper(
+                    duals_wrapper(
+                        m, getattr(m, "Horizon_Energy_Limit_Constraint")[z, bt, h]
+                    ),
+                    m.hrz_objective_coefficient[bt, h],
+                )
+                if (z, bt, h)
+                in [idx for idx in getattr(m, "Horizon_Energy_Limit_Constraint")]
+                else None
+            ),
         ]
         for (z, bt, h) in m.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET
     ]
@@ -188,6 +247,12 @@ def save_duals(
     dynamic_components,
 ):
     instance.constraint_indices["Horizon_Energy_Target_Constraint"] = [
+        "energy_target_zone",
+        "balancing_type",
+        "horizon",
+        "dual",
+    ]
+    instance.constraint_indices["Horizon_Energy_Limit_Constraint"] = [
         "energy_target_zone",
         "balancing_type",
         "horizon",
@@ -279,6 +344,7 @@ def summarize_results(
     results_df.drop("fraction_of_energy_target_met", axis=1, inplace=True)
     results_df.drop("fraction_of_energy_target_energy_curtailed", axis=1, inplace=True)
     results_df.drop("energy_target_shortage_mwh", axis=1, inplace=True)
+    results_df.drop("energy_limit_shortage_mwh", axis=1, inplace=True)
 
     # Rearrange the columns
     cols = results_df.columns.tolist()

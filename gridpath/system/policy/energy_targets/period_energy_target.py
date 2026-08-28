@@ -57,6 +57,19 @@ def add_model_components(
         within=PercentFraction,
         default=0,
     )
+    # RPS Limit specified in energy terms
+    m.period_energy_limit_mwh = Param(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET,
+        within=NonNegativeReals,
+        default=0,
+    )
+
+    # RPS limit specified in 'percent of load' terms
+    m.period_energy_limit_fraction = Param(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET,
+        within=PercentFraction,
+        default=0,
+    )
 
     # Load zones included in RPS percentage target
     m.PERIOD_ENERGY_TARGET_ZONE_LOAD_ZONES = Set(
@@ -102,6 +115,45 @@ def add_model_components(
         m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, rule=energy_target_rule
     )
 
+    def energy_limit_rule(mod, energy_target_zone, period):
+        """
+        The RPS target consists of two additive components: an energy term
+        and a 'percent of load x load' term, where a mapping between the RPS
+        zone and the load zones whose load to consider must be specified.
+        Either the energy target or the percent target can be omitted (they
+        default to 0). If a mapping is not specified, the
+        'percent of load x load' is 0.
+        """
+        # If we have a map of RPS zones to load zones, apply the percentage
+        # target; if no map provided, the percentage_target is 0
+        if mod.PERIOD_ENERGY_TARGET_ZONE_LOAD_ZONES:
+            total_period_load_modifier_adjusted_load = sum(
+                mod.LZ_Modified_Load_in_Tmp[lz, tmp]
+                * mod.hrs_in_tmp[tmp]
+                * mod.tmp_weight[tmp]
+                for (
+                    _energy_target_zone,
+                    lz,
+                ) in mod.PERIOD_ENERGY_TARGET_ZONE_LOAD_ZONES
+                if _energy_target_zone == energy_target_zone
+                for tmp in mod.TMPS
+                if tmp in mod.TMPS_IN_PRD[period]
+            )
+            percentage_target = (
+                mod.period_energy_limit_fraction[energy_target_zone, period]
+                * total_period_load_modifier_adjusted_load
+            )
+        else:
+            percentage_target = 0
+
+        return (
+            mod.period_energy_limit_mwh[energy_target_zone, period] + percentage_target
+        )
+
+    m.Period_Energy_Limit = Expression(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, rule=energy_limit_rule
+    )
+
 
 def load_model_data(
     m,
@@ -140,6 +192,8 @@ def load_model_data(
         param=(
             m.period_energy_target_mwh,
             m.period_energy_target_fraction,
+            m.period_energy_limit_mwh,
+            m.period_energy_limit_fraction,
         ),
     )
 
@@ -185,7 +239,7 @@ def get_inputs_from_database(
     c = conn.cursor()
     energy_targets = c.execute(
         """SELECT energy_target_zone, period, energy_target_mwh, 
-        energy_target_fraction
+        energy_target_fraction, energy_limit_mwh, energy_limit_fraction
         FROM inputs_system_period_energy_targets
         JOIN
         (SELECT period
@@ -323,6 +377,8 @@ def write_model_inputs(
                 "period",
                 "energy_target_mwh",
                 "energy_target_fraction",
+                "energy_limit_mwh",
+                "energy_limit_fraction",
             ]
         )
 

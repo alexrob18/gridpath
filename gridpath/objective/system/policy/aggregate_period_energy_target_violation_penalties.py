@@ -46,6 +46,12 @@ def add_model_components(
             * mod.number_years_represented[p]
             * mod.discount_factor[p]
             for (z, p) in mod.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET
+        ) + sum(
+            mod.Period_Energy_Limit_Shortage_MWh_Expression[z, p]
+            * mod.energy_limit_violation_penalty_per_mwh[z]
+            * mod.number_years_represented[p]
+            * mod.discount_factor[p]
+            for (z, p) in mod.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET
         )
 
     m.Total_Period_Energy_Target_Balance_Penalty_Costs = Expression(

@@ -249,10 +249,10 @@ using (scenario_id)
 ;
 
 -- RPS
-select scenario_id, scenario_name, energy_target_zone, period, energy_target_mwh,
+select scenario_id, scenario_name, energy_target_zone, period, energy_target_mwh,energy_limit_mwh,
 delivered_energy_target_energy_mwh, curtailed_energy_target_energy_mwh, total_energy_target_energy_mwh,
 fraction_of_energy_target_met, fraction_of_energy_target_energy_curtailed,
-dual
+dual_target,dual_limit
 from results_system_energy_target
 join scenarios
 using (scenario_id)

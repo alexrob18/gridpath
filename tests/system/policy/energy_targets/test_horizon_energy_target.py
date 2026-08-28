@@ -196,6 +196,58 @@ class TestHorizonEnergyTarget(unittest.TestCase):
             expected_energy_target_fraction, actual_energy_target_fraction
         )
 
+        # Param: horizon_energy_limit_mwh
+        expected_energy_limit = OrderedDict(
+            sorted(
+                {
+                    ("RPS_Zone_1", "year", 2020): 55,
+                    ("RPS_Zone_1", "year", 2030): 55,
+                    ("RPS_Zone_2", "year", 2020): 12,
+                    ("RPS_Zone_2", "year", 2030): 12,
+                }.items()
+            )
+        )
+        actual_energy_limit = OrderedDict(
+            sorted(
+                {
+                    (z, bt, h): instance.horizon_energy_limit_mwh[z, bt, h]
+                    for (
+                        z,
+                        bt,
+                        h,
+                    ) in instance.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET
+                }.items()
+            )
+        )
+        self.assertDictEqual(expected_energy_limit, actual_energy_limit)
+
+        # Param: horizon_energy_limit_fraction
+        expected_energy_limit_fraction = OrderedDict(
+            sorted(
+                {
+                    ("RPS_Zone_1", "year", 2020): 0.3,
+                    ("RPS_Zone_1", "year", 2030): 0.38,
+                    ("RPS_Zone_2", "year", 2020): 0.1,
+                    ("RPS_Zone_2", "year", 2030): 0.1,
+                }.items()
+            )
+        )
+        actual_energy_limit_fraction = OrderedDict(
+            sorted(
+                {
+                    (z, bt, h): instance.horizon_energy_limit_fraction[z, bt, h]
+                    for (
+                        z,
+                        bt,
+                        h,
+                    ) in instance.ENERGY_TARGET_ZONE_BLN_TYPE_HRZS_WITH_ENERGY_TARGET
+                }.items()
+            )
+        )
+        self.assertDictEqual(
+            expected_energy_limit_fraction, actual_energy_limit_fraction
+        )
+
         # Set: HORIZON_ENERGY_TARGET_ZONE_LOAD_ZONES
         expected_energy_target_zone_load_zones = sorted(
             [("RPS_Zone_1", "Zone1"), ("RPS_Zone_1", "Zone2"), ("RPS_Zone_2", "Zone3")]

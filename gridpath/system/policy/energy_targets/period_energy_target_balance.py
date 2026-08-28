@@ -80,6 +80,38 @@ def add_model_components(
         m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, rule=energy_target_rule
     )
 
+    m.Period_Energy_Limit_Shortage_MWh = Var(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, within=NonNegativeReals
+    )
+
+    def violation_limit_expression_rule(mod, z, p):
+        if mod.energy_limit_allow_violation[z]:
+            return mod.Period_Energy_Limit_Shortage_MWh[z, p]
+        else:
+            return 0
+
+    m.Period_Energy_Limit_Shortage_MWh_Expression = Expression(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, rule=violation_limit_expression_rule
+    )
+
+    def energy_limit_rule(mod, z, p):
+        """
+        Total delivered energy-target-eligible energy must exceed target
+        :param mod:
+        :param z:
+        :param p:
+        :return:
+        """
+        return (
+            mod.Total_Delivered_Period_Energy_Target_Energy_MWh[z, p]
+            - mod.Period_Energy_Limit_Shortage_MWh_Expression[z, p]
+            <= mod.Period_Energy_Limit[z, p]
+        )
+
+    m.Period_Energy_Limit_Constraint = Constraint(
+        m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET, rule=energy_limit_rule
+    )
+
 
 def export_results(
     scenario_directory,
@@ -103,18 +135,23 @@ def export_results(
 
     results_columns = [
         "energy_target_mwh",
+        "energy_limit_mwh",
         "total_energy_target_energy_mwh",
         "fraction_of_energy_target_met",
         "fraction_of_energy_target_energy_curtailed",
         "energy_target_shortage_mwh",
-        "dual",
+        "dual_target",
         "energy_target_marginal_cost_per_mwh",
+        "energy_limit_shortage_mwh",
+        "dual_limit",
+        "energy_limit_marginal_cost_per_mwh",
     ]
     data = [
         [
             z,
             p,
             value(m.Period_Energy_Target[z, p]),
+            value(m.Period_Energy_limit[z, p]),
             value(m.Total_Delivered_Period_Energy_Target_Energy_MWh[z, p])
             + value(m.Total_Curtailed_Period_Energy_Target_Energy_MWh[z, p]),
             (
@@ -154,6 +191,24 @@ def export_results(
                 in [idx for idx in getattr(m, "Period_Energy_Target_Constraint")]
                 else None
             ),
+            value(m.Period_Energy_Limit_Shortage_MWh_Expression[z, p]),
+            (
+                duals_wrapper(m, getattr(m, "Period_Energy_Limit_Constraint")[z, p])
+                if (z, p)
+                in [idx for idx in getattr(m, "Period_Energy_Limit_Constraint")]
+                else None
+            ),
+            (
+                none_dual_type_error_wrapper(
+                    duals_wrapper(
+                        m, getattr(m, "Period_Energy_Limit_Constraint")[z, p]
+                    ),
+                    m.period_objective_coefficient[p],
+                )
+                if (z, p)
+                in [idx for idx in getattr(m, "Period_Energy_Limit_Constraint")]
+                else None
+            ),
         ]
         for (z, p) in m.ENERGY_TARGET_ZONE_PERIODS_WITH_ENERGY_TARGET
     ]
@@ -179,6 +234,11 @@ def save_duals(
     dynamic_components,
 ):
     instance.constraint_indices["Period_Energy_Target_Constraint"] = [
+        "energy_target_zone",
+        "period",
+        "dual",
+    ]
+    instance.constraint_indices["Period_Energy_Limit_Constraint"] = [
         "energy_target_zone",
         "period",
         "dual",
@@ -268,6 +328,7 @@ def summarize_results(
     results_df.drop("fraction_of_energy_target_met", axis=1, inplace=True)
     results_df.drop("fraction_of_energy_target_energy_curtailed", axis=1, inplace=True)
     results_df.drop("energy_target_shortage_mwh", axis=1, inplace=True)
+    results_df.drop("energy_limit_shortage_mwh", axis=1, inplace=True)
 
     # Rearrange the columns
     cols = results_df.columns.tolist()

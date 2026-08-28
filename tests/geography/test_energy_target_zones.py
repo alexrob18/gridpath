@@ -105,10 +105,10 @@ class TestRPSZones(unittest.TestCase):
         self.assertListEqual(expected_energy_target_zones, actual_energy_target_zones)
 
         # Param: allow_violation
-        expected_allow_violation = OrderedDict(
+        expected_target_allow_violation = OrderedDict(
             sorted({"RPS_Zone_1": 0, "RPS_Zone_2": 0}.items())
         )
-        actual_allow_violation = OrderedDict(
+        actual_target_allow_violation = OrderedDict(
             sorted(
                 {
                     z: instance.energy_target_allow_violation[z]
@@ -116,13 +116,13 @@ class TestRPSZones(unittest.TestCase):
                 }.items()
             )
         )
-        self.assertDictEqual(expected_allow_violation, actual_allow_violation)
+        self.assertDictEqual(expected_target_allow_violation, actual_target_allow_violation)
 
         # Param: violation penalty
-        expected_penalty = OrderedDict(
+        expected_target_penalty = OrderedDict(
             sorted({"RPS_Zone_1": 0, "RPS_Zone_2": 0}.items())
         )
-        actual_penalty = OrderedDict(
+        actual_target_penalty = OrderedDict(
             sorted(
                 {
                     z: instance.energy_target_violation_penalty_per_mwh[z]
@@ -130,4 +130,32 @@ class TestRPSZones(unittest.TestCase):
                 }.items()
             )
         )
-        self.assertDictEqual(expected_penalty, actual_penalty)
+        self.assertDictEqual(expected_target_penalty, actual_target_penalty)
+
+        # Param: allow_limit_violation
+        expected_limit_allow_violation = OrderedDict(
+            sorted({"RPS_Zone_1": 0, "RPS_Zone_2": 0}.items())
+        )
+        actual_limit_allow_violation = OrderedDict(
+            sorted(
+                {
+                    z: instance.energy_limit_allow_violation[z]
+                    for z in instance.ENERGY_TARGET_ZONES
+                }.items()
+            )
+        )
+        self.assertDictEqual(expected_limit_allow_violation, actual_limit_allow_violation)
+
+        # Param: limit violation penalty
+        expected_limit_penalty = OrderedDict(
+            sorted({"RPS_Zone_1": 0, "RPS_Zone_2": 0}.items())
+        )
+        actual_limit_penalty = OrderedDict(
+            sorted(
+                {
+                    z: instance.energy_limit_violation_penalty_per_mwh[z]
+                    for z in instance.ENERGY_TARGET_ZONES
+                }.items()
+            )
+        )
+        self.assertDictEqual(expected_limit_penalty, actual_limit_penalty)

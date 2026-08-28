@@ -1708,6 +1708,16 @@ class TestExamples(unittest.TestCase):
         scenario_name = "2periods_new_build_simple_prm_prj_in_2_zone"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_example_2periods_new_build_rps_lim(self):
+        """
+        Check validation and objective function value of
+        "2periods_new_build_rps_lim" example
+        :return:
+        """
+
+        scenario_name = "2periods_new_build_rps_lim"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     @classmethod
     def tearDownClass(cls):
         os.remove(DB_PATH)

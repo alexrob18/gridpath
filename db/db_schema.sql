@@ -629,9 +629,11 @@ DROP TABLE IF EXISTS inputs_geography_energy_target_zones;
 CREATE TABLE inputs_geography_energy_target_zones
 (
     energy_target_zone_scenario_id INTEGER,
-    energy_target_zone             VARCHAR(32),
-    allow_violation                INTEGER DEFAULT 0, -- constraint is hard by default
-    violation_penalty_per_mwh      FLOAT   DEFAULT 0,
+    energy_target_zone                  VARCHAR(32),
+    target_allow_violation              INTEGER DEFAULT 0, -- constraint is hard by default
+    target_violation_penalty_per_mwh    FLOAT   DEFAULT 0,
+    limit_allow_violation               INTEGER DEFAULT 0, -- constraint is hard by default
+    limit_violation_penalty_per_mwh     FLOAT   DEFAULT 0,
     PRIMARY KEY (energy_target_zone_scenario_id, energy_target_zone),
     FOREIGN KEY (energy_target_zone_scenario_id) REFERENCES
         subscenarios_geography_energy_target_zones (energy_target_zone_scenario_id)
@@ -5110,6 +5112,8 @@ CREATE TABLE inputs_system_period_energy_targets
     period                           INTEGER,
     energy_target_mwh                FLOAT,
     energy_target_fraction           FLOAT,
+    energy_limit_mwh                 FLOAT,
+    energy_limit_fraction            FLOAT,
     PRIMARY KEY (period_energy_target_scenario_id, energy_target_zone,
                  subproblem_id, stage_id, period)
 );
@@ -5151,6 +5155,8 @@ CREATE TABLE inputs_system_horizon_energy_targets
     horizon                           INTEGER,
     energy_target_mwh                 FLOAT,
     energy_target_fraction            FLOAT,
+    energy_limit_mwh                  FLOAT,
+    energy_limit_fraction             FLOAT,
     PRIMARY KEY (horizon_energy_target_scenario_id, energy_target_zone,
                  subproblem_id, stage_id, balancing_type_horizon, horizon)
 );

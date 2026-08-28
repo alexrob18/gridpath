@@ -49,6 +49,12 @@ def add_model_components(
     m.energy_target_violation_penalty_per_mwh = Param(
         m.ENERGY_TARGET_ZONES, within=NonNegativeReals, default=0
     )
+    m.energy_limit_allow_violation = Param(
+        m.ENERGY_TARGET_ZONES, within=Boolean, default=0
+    )
+    m.energy_limit_violation_penalty_per_mwh = Param(
+        m.ENERGY_TARGET_ZONES, within=NonNegativeReals, default=0
+    )
 
 
 def load_model_data(
@@ -77,6 +83,8 @@ def load_model_data(
         param=(
             m.energy_target_allow_violation,
             m.energy_target_violation_penalty_per_mwh,
+            m.energy_limit_allow_violation,
+            m.energy_limit_violation_penalty_per_mwh,
         ),
     )
 
@@ -101,8 +109,9 @@ def get_inputs_from_database(
 
     c = conn.cursor()
     energy_target_zones = c.execute(
-        """SELECT energy_target_zone, allow_violation, 
-        violation_penalty_per_mwh
+        """SELECT energy_target_zone, target_allow_violation, 
+        target_violation_penalty_per_mwh, limit_allow_violation
+        limit_violation_penalty_per_mwh
            FROM inputs_geography_energy_target_zones
            WHERE energy_target_zone_scenario_id = {};""".format(
             subscenarios.ENERGY_TARGET_ZONE_SCENARIO_ID
@@ -199,7 +208,13 @@ def write_model_inputs(
 
         # Write header
         writer.writerow(
-            ["energy_target_zone", "allow_violation", "violation_penalty_per_mwh"]
+            [
+                "energy_target_zone",
+                "target_allow_violation",
+                "target_violation_penalty_per_mwh",
+                "limit_allow_violation",
+                "limit_violation_penalty_per_mwh"
+            ]
         )
 
         for row in energy_target_zones:
