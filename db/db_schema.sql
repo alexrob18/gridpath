@@ -16,6 +16,25 @@
 
 -- A description of the database schema structure is in db.__init__
 
+--------------------
+-- -- METADATA -- --
+--------------------
+
+-- Database metadata: the GridPath version used to create the database, the
+-- datetime when the database was created, and the datetimes when each type
+-- of data was last modified by GridPath utilities (single-row table); the
+-- last-modified datetimes are NULL until the respective utility first runs
+DROP TABLE IF EXISTS db_metadata;
+CREATE TABLE db_metadata
+(
+    gridpath_version                 VARCHAR(64),
+    created_datetime                 DATETIME,
+    inputs_last_modified_datetime    DATETIME,
+    scenarios_last_modified_datetime DATETIME,
+    results_last_imported_datetime   DATETIME,
+    results_last_processed_datetime  DATETIME
+);
+
 -----------------
 -- -- MODEL -- --
 -----------------
@@ -188,6 +207,23 @@ CREATE TABLE status_validation
     severity        VARCHAR(32),
     description     VARCHAR(64),
     time_stamp      TEXT, -- ISO8601 String
+    FOREIGN KEY (scenario_id) REFERENCES scenarios (scenario_id)
+);
+
+-- End-to-end run step timings: the start/end time and duration of each E2E
+-- step from the scenario's most recent gridpath_run_e2e invocation (rows
+-- are cleared at the start of each invocation and written as each step
+-- finishes)
+DROP TABLE IF EXISTS status_e2e_step_timings;
+CREATE TABLE status_e2e_step_timings
+(
+    scenario_id      INTEGER,
+    run_process_id   INTEGER,
+    e2e_step         VARCHAR(32),
+    step_start_time  TIME,
+    step_end_time    TIME,
+    duration_seconds FLOAT,
+    PRIMARY KEY (scenario_id, e2e_step),
     FOREIGN KEY (scenario_id) REFERENCES scenarios (scenario_id)
 );
 
@@ -1467,6 +1503,7 @@ CREATE TABLE inputs_system_water_flows
     hrz_max_flow_violation_penalty_cost_per_hour FLOAT,
     water_flow_timepoint_bounds_scenario_id      INTEGER,
     water_flow_horizon_bounds_scenario_id        INTEGER,
+    water_flow_upstream_node_map_scenario_id     INTEGER,
     water_flow_ramp_limit_scenario_id            INTEGER,
     PRIMARY KEY (water_flow_scenario_id, water_link),
     FOREIGN KEY (water_flow_scenario_id) REFERENCES
@@ -1492,6 +1529,7 @@ CREATE TABLE inputs_system_water_flows_timepoint_bounds
     timepoint                               FLOAT,
     min_tmp_flow_vol_per_second             FLOAT,
     max_tmp_flow_vol_per_second             FLOAT,
+    threshold_side_stream_vol_per_second    FLOAT,
     PRIMARY KEY (water_link, water_flow_timepoint_bounds_scenario_id,
                  timepoint),
     FOREIGN KEY (water_link, water_flow_timepoint_bounds_scenario_id) REFERENCES
@@ -1527,27 +1565,29 @@ CREATE TABLE inputs_system_water_flows_horizon_bounds
             (water_link, water_flow_horizon_bounds_scenario_id)
 );
 
-DROP TABLE IF EXISTS subscenarios_system_water_flows_horizon_bounds_upstream_node_map;
-CREATE TABLE subscenarios_system_water_flows_horizon_bounds_upstream_node_map
+-- Water nodes upstream of a water link whose exogenous inflows count
+-- toward the side stream thresholds (both by-timepoint and by-horizon)
+DROP TABLE IF EXISTS subscenarios_system_water_flows_upstream_node_map;
+CREATE TABLE subscenarios_system_water_flows_upstream_node_map
 (
-    water_link                            TEXT,
-    water_flow_horizon_bounds_scenario_id INTEGER,
-    name                                  VARCHAR(32),
-    description                           VARCHAR(128),
-    PRIMARY KEY (water_link, water_flow_horizon_bounds_scenario_id)
+    water_link                               TEXT,
+    water_flow_upstream_node_map_scenario_id INTEGER,
+    name                                     VARCHAR(32),
+    description                              VARCHAR(128),
+    PRIMARY KEY (water_link, water_flow_upstream_node_map_scenario_id)
 );
 
-DROP TABLE IF EXISTS inputs_system_water_flows_horizon_bounds_upstream_node_map;
-CREATE TABLE inputs_system_water_flows_horizon_bounds_upstream_node_map
+DROP TABLE IF EXISTS inputs_system_water_flows_upstream_node_map;
+CREATE TABLE inputs_system_water_flows_upstream_node_map
 (
-    water_link                            TEXT,
-    water_flow_horizon_bounds_scenario_id INTEGER,
-    upstream_water_node                   TEXT,
-    PRIMARY KEY (water_link, water_flow_horizon_bounds_scenario_id,
+    water_link                               TEXT,
+    water_flow_upstream_node_map_scenario_id INTEGER,
+    upstream_water_node                      TEXT,
+    PRIMARY KEY (water_link, water_flow_upstream_node_map_scenario_id,
                  upstream_water_node),
-    FOREIGN KEY (water_link, water_flow_horizon_bounds_scenario_id) REFERENCES
-        subscenarios_system_water_flows_horizon_bounds
-            (water_link, water_flow_horizon_bounds_scenario_id)
+    FOREIGN KEY (water_link, water_flow_upstream_node_map_scenario_id) REFERENCES
+        subscenarios_system_water_flows_upstream_node_map
+            (water_link, water_flow_upstream_node_map_scenario_id)
 );
 
 -- Water flow ramp limits
@@ -1606,7 +1646,7 @@ CREATE TABLE inputs_system_water_flow_ramp_limit_bt_hrz_values
 DROP TABLE IF EXISTS subscenarios_system_water_inflows;
 CREATE TABLE subscenarios_system_water_inflows
 (
-    water_inflow_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    water_inflow_tmp_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name                     VARCHAR(32),
     description              VARCHAR(128)
 );
@@ -1614,15 +1654,41 @@ CREATE TABLE subscenarios_system_water_inflows
 DROP TABLE IF EXISTS inputs_system_water_inflows;
 CREATE TABLE inputs_system_water_inflows
 (
-    water_inflow_scenario_id                INTEGER,
+    water_inflow_tmp_scenario_id                INTEGER,
     water_node                              TEXT,
     hydro_iteration                         INTEGER DEFAULT 0 NOT NULL,
     timepoint                               FLOAT,
     exogenous_water_inflow_rate_vol_per_sec TEXT,
-    PRIMARY KEY (water_inflow_scenario_id, water_node, timepoint,
+    PRIMARY KEY (water_inflow_tmp_scenario_id, water_node, timepoint,
                  hydro_iteration),
-    FOREIGN KEY (water_inflow_scenario_id) REFERENCES
-        subscenarios_system_water_inflows (water_inflow_scenario_id)
+    FOREIGN KEY (water_inflow_tmp_scenario_id) REFERENCES
+        subscenarios_system_water_inflows (water_inflow_tmp_scenario_id)
+);
+
+-- Average inflows by horizon; these are spread uniformly across the
+-- horizon's timepoints in the model and are additive with the
+-- timepoint-level inflows from inputs_system_water_inflows
+DROP TABLE IF EXISTS subscenarios_system_water_inflows_bt_hrz;
+CREATE TABLE subscenarios_system_water_inflows_bt_hrz
+(
+    water_inflow_bt_hrz_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                            VARCHAR(32),
+    description                     VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_system_water_inflows_bt_hrz;
+CREATE TABLE inputs_system_water_inflows_bt_hrz
+(
+    water_inflow_bt_hrz_scenario_id             INTEGER,
+    water_node                                  TEXT,
+    hydro_iteration                             INTEGER DEFAULT 0 NOT NULL,
+    balancing_type                              TEXT,
+    horizon                                     INTEGER,
+    exogenous_water_inflow_rate_avg_vol_per_sec FLOAT,
+    PRIMARY KEY (water_inflow_bt_hrz_scenario_id, water_node, balancing_type,
+                 horizon, hydro_iteration),
+    FOREIGN KEY (water_inflow_bt_hrz_scenario_id) REFERENCES
+        subscenarios_system_water_inflows_bt_hrz (water_inflow_bt_hrz_scenario_id)
 );
 
 -- water_powerhouses
@@ -1961,6 +2027,62 @@ CREATE TABLE inputs_project_capacity_groups
 
 -- -- Operations -- --
 
+-- Operating characteristics temporal maps
+-- Optional, reusable maps for pointing timepoint-/horizon-indexed operating
+-- characteristics inputs (e.g., variable generator profiles, hydro
+-- operational characteristics) at data stored under other timepoints /
+-- horizons, so that repeating data does not need to be specified more than
+-- once (e.g., profiles specified for one period and repeated in all future
+-- periods, or a representative day repeated within a period).
+-- Maps are project-agnostic relations from the model's timepoint (horizon)
+-- to the timepoint (horizon) under which the data is stored in the
+-- respective inputs table; a timepoint (horizon) not listed in a map reads
+-- data at the timepoint (horizon) itself. Projects opt in per input type
+-- via the *_tmp_map_scenario_id / *_hrz_map_scenario_id columns of
+-- inputs_project_operational_chars below; a NULL map means the data must
+-- cover all model timepoints (horizons) directly.
+DROP TABLE IF EXISTS subscenarios_project_opchar_timepoint_map;
+CREATE TABLE subscenarios_project_opchar_timepoint_map
+(
+    opchar_timepoint_map_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                             VARCHAR(32),
+    description                      VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_project_opchar_timepoint_map;
+CREATE TABLE inputs_project_opchar_timepoint_map
+(
+    opchar_timepoint_map_scenario_id INTEGER,
+    timepoint                        INTEGER,
+    data_timepoint                   INTEGER,
+    PRIMARY KEY (opchar_timepoint_map_scenario_id, timepoint),
+    FOREIGN KEY (opchar_timepoint_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id)
+);
+
+DROP TABLE IF EXISTS subscenarios_project_opchar_horizon_map;
+CREATE TABLE subscenarios_project_opchar_horizon_map
+(
+    opchar_horizon_map_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                           VARCHAR(32),
+    description                    VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_project_opchar_horizon_map;
+CREATE TABLE inputs_project_opchar_horizon_map
+(
+    opchar_horizon_map_scenario_id INTEGER,
+    balancing_type_horizon         VARCHAR(32),
+    horizon                        INTEGER,
+    data_horizon                   INTEGER,
+    PRIMARY KEY (opchar_horizon_map_scenario_id, balancing_type_horizon,
+                 horizon),
+    FOREIGN KEY (opchar_horizon_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_horizon_map
+            (opchar_horizon_map_scenario_id)
+);
+
 -- Project operational characteristics
 -- These vary by operational type
 -- Generators that do not have certain characteristics (e.g. hydro does not
@@ -1989,6 +2111,7 @@ CREATE TABLE inputs_project_operational_chars
     variable_om_cost_per_mwh                              FLOAT,   -- simple variable O&M
     variable_om_cost_by_period_scenario_id                INTEGER, -- determines by period simple variable O&M
     variable_om_cost_by_timepoint_scenario_id             INTEGER, -- determines by tmp simple variable O&M
+    variable_om_cost_by_timepoint_tmp_map_scenario_id     INTEGER, -- optional timepoint map for by-tmp variable O&M
     project_fuel_scenario_id                              INTEGER,
     heat_rate_curves_scenario_id                          INTEGER, -- determined heat rate curve
     variable_om_curves_scenario_id                        INTEGER, -- determined variable O&M curve
@@ -2034,12 +2157,17 @@ CREATE TABLE inputs_project_operational_chars
     last_commitment_stage                                 INTEGER,
     n_startup_limit_scenario_id                           INTEGER,
     variable_generator_profile_scenario_id                INTEGER, -- determines var profiles
+    variable_generator_profile_tmp_map_scenario_id        INTEGER, -- optional timepoint map for var profiles
     cap_factor_default                                    FLOAT,
     curtailment_cost_scenario_id                          INTEGER,
     hydro_operational_chars_scenario_id                   INTEGER, -- determines hydro MWa, min, max
+    hydro_operational_chars_hrz_map_scenario_id           INTEGER, -- optional horizon map for hydro opchars
     energy_profile_scenario_id                            INTEGER,
+    energy_profile_tmp_map_scenario_id                    INTEGER, -- optional timepoint map for energy profiles
     energy_hrz_shaping_scenario_id                        INTEGER,
+    energy_hrz_shaping_hrz_map_scenario_id                INTEGER, -- optional horizon map for energy hrz shaping
     energy_slice_hrz_shaping_scenario_id                  INTEGER,
+    energy_slice_hrz_shaping_hrz_map_scenario_id          INTEGER, -- optional horizon map for energy slice hrz shaping
     base_net_requirement_scenario_id                      INTEGER,
     peak_deviation_demand_charge_scenario_id              INTEGER,
     lf_reserves_up_derate                                 FLOAT,
@@ -2060,12 +2188,15 @@ CREATE TABLE inputs_project_operational_chars
     cap_factor_limits_scenario_id                         INTEGER,
     partial_availability_threshold                        FLOAT,
     stor_exog_state_of_charge_scenario_id                 INTEGER, -- determines storage SOC
+    stor_exog_state_of_charge_tmp_map_scenario_id         INTEGER, -- optional timepoint map for storage exog SOC
     nonfuel_carbon_emissions_per_mwh                      FLOAT,
     powerhouse                                            TEXT,
     generator_efficiency                                  FLOAT,
     linked_load_component                                 TEXT,
     load_modifier_profile_scenario_id                     INTEGER,
+    load_modifier_profile_tmp_map_scenario_id             INTEGER, -- optional timepoint map for load modifier profiles
     load_component_shift_bounds_scenario_id               INTEGER,
+    load_component_shift_bounds_hrz_map_scenario_id       INTEGER, -- optional horizon map for load component shift bounds
     efficiency_factor                                     FLOAT,
     energy_requirement_factor                             FLOAT,
     losses_factor_in_energy_target                        FLOAT,
@@ -2149,6 +2280,34 @@ CREATE TABLE inputs_project_operational_chars
     FOREIGN KEY (project, load_modifier_profile_scenario_id) REFERENCES
         subscenarios_project_load_modifier_profiles (project,
                                                      load_modifier_profile_scenario_id),
+-- Ensure the referenced opchar timepoint/horizon maps exist
+    FOREIGN KEY (variable_om_cost_by_timepoint_tmp_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id),
+    FOREIGN KEY (variable_generator_profile_tmp_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id),
+    FOREIGN KEY (energy_profile_tmp_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id),
+    FOREIGN KEY (stor_exog_state_of_charge_tmp_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id),
+    FOREIGN KEY (load_modifier_profile_tmp_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_timepoint_map
+            (opchar_timepoint_map_scenario_id),
+    FOREIGN KEY (hydro_operational_chars_hrz_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_horizon_map
+            (opchar_horizon_map_scenario_id),
+    FOREIGN KEY (energy_hrz_shaping_hrz_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_horizon_map
+            (opchar_horizon_map_scenario_id),
+    FOREIGN KEY (energy_slice_hrz_shaping_hrz_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_horizon_map
+            (opchar_horizon_map_scenario_id),
+    FOREIGN KEY (load_component_shift_bounds_hrz_map_scenario_id) REFERENCES
+        subscenarios_project_opchar_horizon_map
+            (opchar_horizon_map_scenario_id),
     FOREIGN KEY (operational_type) REFERENCES mod_operational_types
         (operational_type)
 );
@@ -2885,6 +3044,30 @@ CREATE TABLE inputs_project_stor_exog_state_of_charge_iterations
     PRIMARY KEY (project, stor_exog_state_of_charge_scenario_id)
 );
 
+-- Stress-horizon storage (stor_stress_hrz) horizon types: designates each horizon as an
+-- "average" (average-condition) or "stress" horizon; horizons not in the
+-- inputs default to "average"
+DROP TABLE IF EXISTS subscenarios_project_stor_stress_hrz_types;
+CREATE TABLE subscenarios_project_stor_stress_hrz_types
+(
+    stor_stress_hrz_type_scenario_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                          VARCHAR(32),
+    description                   VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_project_stor_stress_hrz_types;
+CREATE TABLE inputs_project_stor_stress_hrz_types
+(
+    stor_stress_hrz_type_scenario_id INTEGER,
+    balancing_type_horizon        VARCHAR(32),
+    horizon                       INTEGER,
+    stor_stress_hrz_type             VARCHAR(16),
+    PRIMARY KEY (stor_stress_hrz_type_scenario_id, balancing_type_horizon,
+                 horizon),
+    FOREIGN KEY (stor_stress_hrz_type_scenario_id) REFERENCES
+        subscenarios_project_stor_stress_hrz_types (stor_stress_hrz_type_scenario_id)
+);
+
 -- Cap factor limits
 DROP TABLE IF EXISTS subscenarios_project_cap_factor_limits;
 CREATE TABLE subscenarios_project_cap_factor_limits
@@ -3505,6 +3688,31 @@ CREATE TABLE inputs_project_energy_target_zones
     PRIMARY KEY (project_energy_target_zone_scenario_id, project),
     FOREIGN KEY (project_energy_target_zone_scenario_id) REFERENCES
         subscenarios_project_energy_target_zones (project_energy_target_zone_scenario_id)
+);
+
+-- Transmission energy target zones
+-- Which transmission lines' losses count against the energy target
+-- This table can include all tx lines with NULLs for tx lines not
+-- contributing or just the contributing tx lines
+DROP TABLE IF EXISTS subscenarios_transmission_energy_target_zones;
+CREATE TABLE subscenarios_transmission_energy_target_zones
+(
+    transmission_energy_target_zone_scenario_id INTEGER PRIMARY KEY,
+    name                                        VARCHAR(32),
+    description                                 VARCHAR(128)
+);
+
+DROP TABLE IF EXISTS inputs_transmission_energy_target_zones;
+CREATE TABLE inputs_transmission_energy_target_zones
+(
+    transmission_energy_target_zone_scenario_id INTEGER,
+    transmission_line                           VARCHAR(64),
+    energy_target_zone                          VARCHAR(32),
+    PRIMARY KEY (transmission_energy_target_zone_scenario_id,
+                 transmission_line),
+    FOREIGN KEY (transmission_energy_target_zone_scenario_id) REFERENCES
+        subscenarios_transmission_energy_target_zones
+            (transmission_energy_target_zone_scenario_id)
 );
 
 -- Project instantaneous penetration zones
@@ -5896,6 +6104,7 @@ CREATE TABLE scenarios
     water_network_scenario_id                                   INTEGER,
     project_portfolio_scenario_id                               INTEGER,
     project_operational_chars_scenario_id                       INTEGER,
+    stor_stress_hrz_type_scenario_id                               INTEGER,
     project_availability_scenario_id                            INTEGER,
     fuel_scenario_id                                            INTEGER,
     project_load_zone_scenario_id                               INTEGER,
@@ -5907,6 +6116,7 @@ CREATE TABLE scenarios
     project_spinning_reserves_ba_scenario_id                    INTEGER,
     project_inertia_reserves_ba_scenario_id                     INTEGER,
     project_energy_target_zone_scenario_id                      INTEGER,
+    transmission_energy_target_zone_scenario_id                 INTEGER,
     project_instantaneous_penetration_zone_scenario_id          INTEGER,
     tx_line_transmission_target_zone_scenario_id                INTEGER,
     project_carbon_cap_zone_scenario_id                         INTEGER,
@@ -5986,7 +6196,8 @@ CREATE TABLE scenarios
     market_volume_total_in_prd_scenario_id                      INTEGER,
     water_node_reservoir_scenario_id                            INTEGER,
     water_flow_scenario_id                                      INTEGER,
-    water_inflow_scenario_id                                    INTEGER,
+    water_inflow_tmp_scenario_id                                    INTEGER,
+    water_inflow_bt_hrz_scenario_id                             INTEGER,
     water_powerhouse_scenario_id                                INTEGER,
     tuning_scenario_id                                          INTEGER,
     solver_options_id                                           INTEGER,
@@ -6059,6 +6270,8 @@ CREATE TABLE scenarios
         subscenarios_project_portfolios (project_portfolio_scenario_id),
     FOREIGN KEY (project_operational_chars_scenario_id) REFERENCES
         subscenarios_project_operational_chars (project_operational_chars_scenario_id),
+    FOREIGN KEY (stor_stress_hrz_type_scenario_id) REFERENCES
+        subscenarios_project_stor_stress_hrz_types (stor_stress_hrz_type_scenario_id),
     FOREIGN KEY (project_availability_scenario_id) REFERENCES
         subscenarios_project_availability (project_availability_scenario_id),
     FOREIGN KEY (fuel_scenario_id) REFERENCES
@@ -6091,6 +6304,9 @@ CREATE TABLE scenarios
     FOREIGN KEY (project_energy_target_zone_scenario_id) REFERENCES
         subscenarios_project_energy_target_zones
             (project_energy_target_zone_scenario_id),
+    FOREIGN KEY (transmission_energy_target_zone_scenario_id) REFERENCES
+        subscenarios_transmission_energy_target_zones
+            (transmission_energy_target_zone_scenario_id),
     FOREIGN KEY (project_instantaneous_penetration_zone_scenario_id) REFERENCES
         subscenarios_project_instantaneous_penetration_zones
             (project_instantaneous_penetration_zone_scenario_id),
@@ -6292,8 +6508,10 @@ CREATE TABLE scenarios
         subscenarios_system_water_node_reservoirs (water_node_reservoir_scenario_id),
     FOREIGN KEY (water_flow_scenario_id) REFERENCES
         subscenarios_system_water_flows (water_flow_scenario_id),
-    FOREIGN KEY (water_inflow_scenario_id) REFERENCES
-        subscenarios_system_water_inflows (water_inflow_scenario_id),
+    FOREIGN KEY (water_inflow_tmp_scenario_id) REFERENCES
+        subscenarios_system_water_inflows (water_inflow_tmp_scenario_id),
+    FOREIGN KEY (water_inflow_bt_hrz_scenario_id) REFERENCES
+        subscenarios_system_water_inflows_bt_hrz (water_inflow_bt_hrz_scenario_id),
     FOREIGN KEY (water_powerhouse_scenario_id) REFERENCES
         subscenarios_system_water_powerhouses (water_powerhouse_scenario_id),
     FOREIGN KEY (tuning_scenario_id) REFERENCES
@@ -6384,6 +6602,7 @@ CREATE TABLE results_project_period
     carbon_credits_zone                    VARCHAR(32),
     carbon_credits_generated_tCO2          FLOAT,
     carbon_credits_purchased_tCO2          FLOAT,
+    stor_stress_hrz_avg_hrz_stored_energy_mwh     FLOAT,
     PRIMARY KEY (scenario_id, project, weather_iteration, hydro_iteration,
                  availability_iteration, period, subproblem_id, stage_id)
 );
@@ -7740,6 +7959,7 @@ CREATE TABLE results_system_horizon_energy_target
     fraction_of_energy_target_energy_curtailed FLOAT,
     energy_target_shortage_mwh                 FLOAT,
     dual                                       FLOAT,
+    energy_target_marginal_cost_per_mwh        FLOAT,
     PRIMARY KEY (scenario_id, energy_target_zone, weather_iteration,
                  hydro_iteration, availability_iteration, subproblem_id,
                  stage_id, balancing_type_horizon, horizon)
@@ -8025,6 +8245,14 @@ CREATE TABLE results_system_water_link_timepoint
     water_flow_vol_per_sec               FLOAT,
     water_flow_min_violation_vol_per_sec FLOAT,
     water_flow_max_violation_vol_per_sec FLOAT,
+    max_tmp_flow_vol_per_second          FLOAT,
+    threshold_side_stream_vol_per_second FLOAT,
+    upstream_exogenous_inflow_vol_per_sec FLOAT,
+    adjusted_max_tmp_flow_vol_per_second FLOAT,
+    water_link_min_flow_constraint_dual  FLOAT,
+    water_link_min_flow_constraint_marginal_cost_per_vol_per_sec FLOAT,
+    water_link_max_flow_constraint_dual  FLOAT,
+    water_link_max_flow_constraint_marginal_cost_per_vol_per_sec FLOAT,
     PRIMARY KEY (scenario_id, weather_iteration, hydro_iteration,
                  availability_iteration, subproblem_id, stage_id, water_link,
                  departure_timepoint)
@@ -8041,17 +8269,35 @@ CREATE TABLE results_system_water_node_timepoint
     stage_id                                       INTEGER,
     water_node                                     VARCHAR(32),
     timepoint                                      INTEGER,
+    exogenous_water_inflow_rate_vol_per_sec        FLOAT,
+    endogenous_water_inflow_rate_vol_per_sec       FLOAT,
+    gross_water_inflow_rate_vol_per_sec            FLOAT,
+    gross_water_outflow_rate_vol_per_sec           FLOAT,
     starting_elevation                             FLOAT,
     starting_volume                                FLOAT,
     min_volume_violation                           FLOAT,
     max_volume_violation                           FLOAT,
-    exogenous_water_inflow_rate_vol_per_sec        FLOAT,
-    endogenous_water_inflow_rate_vol_per_sec       FLOAT,
-    gross_water_inflow_rate_vol_per_sec            FLOAT,
     discharge_water_to_powerhouse_rate_vol_per_sec FLOAT,
     spill_water_rate_vol_per_sec                   FLOAT,
     evap_losses_NOT_IMPLEMENTED                    FLOAT,
-    gross_water_outflow_rate_vol_per_sec           FLOAT,
+    max_discharge_to_powerhouse_constraint_dual    FLOAT,
+    max_discharge_to_powerhouse_constraint_marginal_cost_per_vol_per_sec FLOAT,
+    max_spill_constraint_dual                      FLOAT,
+    max_spill_constraint_marginal_cost_per_vol_per_sec FLOAT,
+    max_gross_outflow_constraint_dual              FLOAT,
+    max_gross_outflow_constraint_marginal_cost_per_vol_per_sec FLOAT,
+    reservoir_target_starting_volume_constraint_dual FLOAT,
+    reservoir_target_starting_volume_constraint_marginal_cost_per_volumeunit FLOAT,
+    reservoir_target_ending_volume_constraint_dual FLOAT,
+    reservoir_target_ending_volume_constraint_marginal_cost_per_volumeunit FLOAT,
+    min_water_storage_constraint_dual              FLOAT,
+    min_water_storage_constraint_marginal_cost_per_volumeunit FLOAT,
+    max_water_storage_constraint_dual              FLOAT,
+    max_water_storage_constraint_marginal_cost_per_volumeunit FLOAT,
+    reservoir_storage_tracking_constraint_dual     FLOAT,
+    reservoir_storage_tracking_constraint_marginal_cost_per_volumeunit FLOAT,
+    water_node_outflow_constraint_dual             FLOAT,
+    water_node_outflow_constraint_marginal_cost_per_vol_per_sec FLOAT,
     PRIMARY KEY (scenario_id, weather_iteration, hydro_iteration,
                  availability_iteration, subproblem_id, stage_id, water_node,
                  timepoint)
@@ -8072,6 +8318,8 @@ CREATE TABLE results_system_water_powerhouse_timepoint
     gross_head                                     FLOAT,
     net_head                                       FLOAT,
     water_discharge_to_powerhouse_rate_vol_per_sec FLOAT,
+    generator_water_allocation_constraint_dual     FLOAT,
+    generator_water_allocation_constraint_marginal_cost_per_vol_per_sec FLOAT,
     PRIMARY KEY (scenario_id, weather_iteration, hydro_iteration,
                  availability_iteration, subproblem_id, stage_id, powerhouse,
                  timepoint)
@@ -8348,6 +8596,10 @@ SELECT scenario_id,
         FROM subscenarios_project_operational_chars
         WHERE project_operational_chars_scenario_id =
               scenarios.project_operational_chars_scenario_id)                       AS project_operating_chars,
+       (SELECT name
+        FROM subscenarios_project_stor_stress_hrz_types
+        WHERE stor_stress_hrz_type_scenario_id =
+              scenarios.stor_stress_hrz_type_scenario_id)                               AS stor_stress_hrz_types,
        (SELECT name
         FROM subscenarios_project_availability
         WHERE project_availability_scenario_id =
@@ -8708,8 +8960,12 @@ SELECT scenario_id,
               scenarios.water_flow_scenario_id)                                      AS water_flows,
        (SELECT name
         FROM subscenarios_system_water_inflows
-        WHERE water_inflow_scenario_id =
-              scenarios.water_inflow_scenario_id)                                    AS water_inflows,
+        WHERE water_inflow_tmp_scenario_id =
+              scenarios.water_inflow_tmp_scenario_id)                                    AS water_inflows,
+       (SELECT name
+        FROM subscenarios_system_water_inflows_bt_hrz
+        WHERE water_inflow_bt_hrz_scenario_id =
+              scenarios.water_inflow_bt_hrz_scenario_id)                             AS water_inflows_bt_hrz,
        (SELECT name
         FROM subscenarios_system_water_powerhouses
         WHERE water_powerhouse_scenario_id =

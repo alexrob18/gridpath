@@ -19,10 +19,21 @@ import multiprocessing
 import os
 import pandas as pd
 import platform
+import shutil
 import sqlite3
+import subprocess
+import sys
+import tempfile
 import unittest
 
-from gridpath import run_end_to_end, run_scenario, validate_inputs
+from gridpath import (
+    get_scenario_inputs,
+    import_scenario_results,
+    run_end_to_end,
+    run_scenario,
+    validate_inputs,
+)
+from gridpath.scenario_directory_cleanup import CLEANUP_MARKER_FILENAME
 from db import create_database
 from db.common_functions import connect_to_database
 from db.utilities import port_csvs_to_db, scenario
@@ -31,7 +42,10 @@ from db.utilities import port_csvs_to_db, scenario
 # expects; the rest of the global variables are relative paths from there
 os.chdir(os.path.join(os.path.dirname(__file__), "..", "gridpath"))
 EXAMPLES_DIRECTORY = os.path.join("..", "examples")
-DB_NAME = "unittest_examples"
+# When running in parallel via pytest-xdist, give each worker process its
+# own database (PYTEST_XDIST_WORKER is e.g. "gw0"; unset in serial runs)
+XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
+DB_NAME = f"unittest_examples{XDIST_WORKER}"
 DB_PATH = f"../db/{DB_NAME}.db"
 DB_SCHEMA = f"../db/db_schema.sql"
 DATA_DIRECTORY = "../db/data"
@@ -46,6 +60,77 @@ WINDOWS = True if platform.system() == "Windows" else False
 
 # Python version
 PYTHON_VERSION = platform.python_version()
+
+
+# Relative tolerance for comparing objective function values: some example
+# objective function values are very large (1e14+ when constraint-violation
+# penalties are incurred), where floating-point differences across platforms
+# and Python versions exceed any fixed absolute tolerance (one ULP at 1e15
+# is ~0.125), so we also allow a relative difference
+OBJECTIVE_REL_TOL = 1e-9
+
+# A pre-built database to copy instead of building the testing database
+# from the CSVs; set by scripts/run_tests_parallel.py, which builds the
+# template once rather than once per pytest-xdist worker
+DB_TEMPLATE_ENV_VAR = "GRIDPATH_TEST_EXAMPLES_DB_TEMPLATE"
+
+
+def create_test_database(db_path):
+    """
+    Build the testing database at db_path from the test-examples CSVs.
+    """
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    create_database.main(
+        [
+            "--database",
+            db_path,
+            "--db_schema",
+            DB_SCHEMA,
+            "--data_directory",
+            DATA_DIRECTORY,
+        ]
+    )
+
+    try:
+        port_csvs_to_db.main(
+            ["--database", db_path, "--csv_location", CSV_PATH, "--quiet"]
+        )
+    except Exception as e:
+        print(
+            "Error encountered during population of testing database "
+            "{}. Deleting database ...".format(db_path)
+        )
+        logging.exception(e)
+        os.remove(db_path)
+
+    try:
+        scenario.main(["--database", db_path, "--csv_path", SCENARIOS_CSV, "--quiet"])
+    except Exception as e:
+        print(
+            "Error encountered during population of testing database "
+            "{}. Deleting database ...".format(db_path)
+        )
+        logging.exception(e)
+        os.remove(db_path)
+
+
+def set_up_test_database(db_path):
+    """
+    Copy the pre-built template database to db_path if one has been provided
+    (parallel runs); otherwise build the database from the CSVs.
+    """
+    template_path = os.environ.get(DB_TEMPLATE_ENV_VAR)
+    if template_path and os.path.exists(template_path):
+        # Clear any stale database files first: copying a fresh .db file
+        # next to a leftover -wal/-shm from an aborted run would corrupt it
+        for stale in [db_path, f"{db_path}-shm", f"{db_path}-wal"]:
+            if os.path.exists(stale):
+                os.remove(stale)
+        shutil.copyfile(template_path, db_path)
+    else:
+        create_test_database(db_path)
 
 
 class TestExamples(unittest.TestCase):
@@ -67,7 +152,17 @@ class TestExamples(unittest.TestCase):
             if isinstance(value, dict):
                 self.assertDictAlmostEqual(d1[key], d2[key], places=places, msg=msg)
             else:
-                self.assertAlmostEqual(d1[key], d2[key], places=places, msg=msg)
+                # A None value means no objective function value was
+                # obtained, e.g. because the solve failed
+                self.assertIsNotNone(
+                    d2[key],
+                    msg=f"No objective function value for {key} (the solve "
+                    f"may have failed; expected {d1[key]})",
+                )
+                # Use the absolute tolerance implied by *places* or the
+                # relative tolerance, whichever is looser
+                delta = max(0.5 * 10**-places, OBJECTIVE_REL_TOL * abs(d1[key]))
+                self.assertAlmostEqual(d1[key], d2[key], delta=delta, msg=msg)
 
     def check_validation(self, test):
         """
@@ -166,24 +261,24 @@ class TestExamples(unittest.TestCase):
                 # Reset the objective to the new dictionary object
                 actual_objective = actual_objective_copy
 
-        # Uncomment this to save new objective function values
-        df = pd.read_csv(TEST_SCENARIOS_CSV, delimiter=",")
-        df.set_index("test_scenario", inplace=True)
-        # Set dtype to 'object' so that we can have floats and dictionaries
-        # in the column
-        df["actual_objective"] = df["actual_objective"].astype("object")
-        df.at[scenario_name, "actual_objective"] = actual_objective
-        df.to_csv(TEST_SCENARIOS_CSV, index=True)
+        # Convert any numpy floats to plain Python floats, so that the
+        # values written to the CSV can be read back with ast.literal_eval
+        # (numpy floats are written as, e.g., 'np.float64(42.0)')
+        actual_objective = objective_values_to_float(actual_objective)
 
-        if scenario_name == "test_new_solar_carbon_cap_dac":
-            # This test is particularly sensitive to platform and
-            # Python version, so we relax the precision of the test a bit
-            # more
-            places = -1
-        else:
-            places = 1
+        # Record the actual objective in the test-scenarios CSV; skip when
+        # running in parallel via pytest-xdist, as concurrent whole-file
+        # rewrites from multiple workers would lose each other's updates
+        if not XDIST_WORKER:
+            df = pd.read_csv(TEST_SCENARIOS_CSV, delimiter=",")
+            df.set_index("test_scenario", inplace=True)
+            # Set dtype to 'object' so that we can have floats and
+            # dictionaries in the column
+            df["actual_objective"] = df["actual_objective"].astype("object")
+            df.at[scenario_name, "actual_objective"] = actual_objective
+            df.to_csv(TEST_SCENARIOS_CSV, index=True)
 
-        self.assertDictAlmostEqual(expected_objective, actual_objective, places=places)
+        self.assertDictAlmostEqual(expected_objective, actual_objective, places=1)
 
     @classmethod
     def setUpClass(cls):
@@ -191,44 +286,7 @@ class TestExamples(unittest.TestCase):
         Set up the testing database
         :return:
         """
-
-        if os.path.exists(DB_PATH):
-            os.remove(DB_PATH)
-
-        create_database.main(
-            [
-                "--database",
-                DB_PATH,
-                "--db_schema",
-                DB_SCHEMA,
-                "--data_directory",
-                DATA_DIRECTORY,
-            ]
-        )
-
-        try:
-            port_csvs_to_db.main(
-                ["--database", DB_PATH, "--csv_location", CSV_PATH, "--quiet"]
-            )
-        except Exception as e:
-            print(
-                "Error encountered during population of testing database "
-                "{}.db. Deleting database ...".format(DB_NAME)
-            )
-            logging.exception(e)
-            os.remove(DB_PATH)
-
-        try:
-            scenario.main(
-                ["--database", DB_PATH, "--csv_path", SCENARIOS_CSV, "--quiet"]
-            )
-        except Exception as e:
-            print(
-                "Error encountered during population of testing database "
-                "{}.db. Deleting database ...".format(DB_NAME)
-            )
-            logging.exception(e)
-            os.remove(DB_PATH)
+        set_up_test_database(DB_PATH)
 
     def validate_and_test_example_generic(
         self, scenario_name, solver=None, skip_validation=False, additional_args=[]
@@ -384,6 +442,18 @@ class TestExamples(unittest.TestCase):
         scenario_name = "2horizons_w_hydro_w_balancing_types"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_example_2horizons_w_stor_stress_hrz(self):
+        """
+        Check validation and objective function value of
+        "2horizons_w_stor_stress_hrz" example. A stor_stress_hrz storage
+        project builds up its state of charge over the first
+        (average-condition) horizon and enters the second (stress) horizon,
+        which has higher load, with the accumulated energy.
+        :return:
+        """
+        scenario_name = "2horizons_w_stor_stress_hrz"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     def test_example_2periods(self):
         """
         Check validation and objective function value of "2periods" example
@@ -397,6 +467,17 @@ class TestExamples(unittest.TestCase):
         Check validation and objective function value of "2periods_new_build" example
         """
         scenario_name = "2periods_new_build"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
+    def test_example_2periods_new_build_w_var_profile_tmp_map(self):
+        """
+        Check validation and objective function value of
+        "2periods_new_build_w_var_profile_tmp_map" example: same as
+        "2periods_new_build", but Wind's profile is specified for the 2020
+        timepoints only and repeated in 2030 via an opchar timepoint map, so
+        the objective function value must be identical.
+        """
+        scenario_name = "2periods_new_build_w_var_profile_tmp_map"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
     def test_example_2periods_new_build_2zones(self):
@@ -485,6 +566,16 @@ class TestExamples(unittest.TestCase):
         scenario_name = "2periods_new_build_rps"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_example_2periods_new_build_rps_w_tx_losses(self):
+        """
+        Check validation and objective function value of
+        "2periods_new_build_rps_w_tx_losses" example, in which transmission
+        losses count against the period energy target
+        :return:
+        """
+        scenario_name = "2periods_new_build_rps_w_tx_losses"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     def test_example_2periods_new_build_rps_percent_target(self):
         """
         Check objective function value of
@@ -533,6 +624,21 @@ class TestExamples(unittest.TestCase):
         scenario_name = "single_stage_prod_cost_linked_subproblems_w_hydro"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_example_single_stage_prod_cost_linked_subproblems_w_hydro_w_hrz_map(
+        self,
+    ):
+        """
+        Check objective function values of
+        "single_stage_prod_cost_linked_subproblems_w_hydro_w_hrz_map"
+        example: same as "single_stage_prod_cost_linked_subproblems_w_hydro",
+        but Hydro's operational characteristics are specified for the first
+        day horizon only and repeated for the other horizons via an opchar
+        horizon map, so the objective function values must be identical.
+        :return:
+        """
+        scenario_name = "single_stage_prod_cost_linked_subproblems_w_hydro_w_hrz_map"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     def test_example_multi_stage_prod_cost(self):
         """
         Check validation and objective function values of
@@ -555,30 +661,537 @@ class TestExamples(unittest.TestCase):
     def test_example_multi_stage_prod_cost_parallel(self):
         """
         Check "multi_stage_prod_cost" example running subproblems in parallel
-        (getting inputs and optimization)
+        (getting inputs and optimization); run in a temporary copy of the
+        scenario directory, so that this test doesn't write into the
+        examples/ directory that test_example_multi_stage_prod_cost may be
+        using concurrently
         :return:
         """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, "multi_stage_prod_cost"),
+                os.path.join(tmp_dir, "multi_stage_prod_cost"),
+            )
+            run_end_to_end.main(
+                [
+                    "--database",
+                    DB_PATH,
+                    "--scenario",
+                    "multi_stage_prod_cost",
+                    "--scenario_location",
+                    tmp_dir,
+                    # "--log",
+                    # "--write_solver_files_to_logs_dir",
+                    # "--keepfiles",
+                    # "--symbolic",
+                    "--n_parallel_get_inputs",
+                    "3",
+                    "--n_parallel_solve",
+                    "3",
+                    "--quiet",
+                    "--mute_solver_output",
+                    "--testing",
+                ]
+            )
+
+    def test_example_multi_stage_prod_cost_parallel_cli_subprocess(self):
+        """
+        Check the parallel flags through the installed gridpath_run_e2e
+        console script in a subprocess (falling back to
+        `python -m gridpath.run_end_to_end` if the script isn't installed).
+
+        The in-process parallel test above can't catch entry-point-specific
+        multiprocessing problems: spawn pool workers re-import the parent
+        process's __main__ module, so whether the parallel flags are safe
+        depends on what that module is — here it is the real CLI entry
+        point rather than the test runner. On Windows (no fork), a broken
+        entry point fails with "An attempt has been made to start a new
+        process before the current process has finished its bootstrapping
+        phase".
+
+        Run in a temporary copy of the scenario directory so this test
+        doesn't write into the examples/ directory that other tests may be
+        using concurrently. No --testing flag: main() must return None so
+        that the console script's sys.exit(main()) exits 0 on success.
+        """
+        exe_name = "gridpath_run_e2e" + (".exe" if WINDOWS else "")
+        exe_path = os.path.join(os.path.dirname(sys.executable), exe_name)
+        if os.path.exists(exe_path):
+            base_cmd = [exe_path]
+        else:
+            base_cmd = [sys.executable, "-m", "gridpath.run_end_to_end"]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, "multi_stage_prod_cost"),
+                os.path.join(tmp_dir, "multi_stage_prod_cost"),
+            )
+            result = subprocess.run(
+                base_cmd
+                + [
+                    "--database",
+                    os.path.abspath(DB_PATH),
+                    "--scenario",
+                    "multi_stage_prod_cost",
+                    "--scenario_location",
+                    tmp_dir,
+                    "--n_parallel_get_inputs",
+                    "3",
+                    "--n_parallel_solve",
+                    "3",
+                    "--quiet",
+                    "--mute_solver_output",
+                ],
+                capture_output=True,
+                text=True,
+                # Bound the run: a spawn-bootstrapping failure can manifest
+                # as a hang (the pool keeps respawning dying workers)
+                timeout=1200,
+            )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg="CLI subprocess {} failed.\nSTDOUT:\n{}\nSTDERR:\n{}".format(
+                base_cmd, result.stdout, result.stderr
+            ),
+        )
+        self.assertNotIn("bootstrapping phase", result.stdout + result.stderr)
+
+        # Confirm the run was marked as finished (run_status_id = 2) in the
+        # database, i.e. all e2e steps actually completed
+        conn = sqlite3.connect(os.path.abspath(DB_PATH))
+        try:
+            run_status_id = conn.execute(
+                "SELECT run_status_id FROM scenarios WHERE scenario_name = ?;",
+                ("multi_stage_prod_cost",),
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(run_status_id, 2)
+
+    def run_e2e_in(self, scenario_name, scenario_location, additional_args):
         run_end_to_end.main(
             [
                 "--database",
                 DB_PATH,
                 "--scenario",
-                "multi_stage_prod_cost",
+                scenario_name,
                 "--scenario_location",
-                EXAMPLES_DIRECTORY,
-                # "--log",
-                # "--write_solver_files_to_logs_dir",
-                # "--keepfiles",
-                # "--symbolic",
-                "--n_parallel_get_inputs",
-                "3",
-                "--n_parallel_solve",
-                "3",
+                scenario_location,
                 "--quiet",
                 "--mute_solver_output",
                 "--testing",
             ]
+            + additional_args
         )
+
+    def get_scenario_results_rows(self, scenario_name):
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            scenario_id = conn.execute(
+                "SELECT scenario_id FROM scenarios WHERE scenario_name = ?;",
+                (scenario_name,),
+            ).fetchone()[0]
+            results_scenario_rows = conn.execute(
+                "SELECT * FROM results_scenario WHERE scenario_id = ?;",
+                (scenario_id,),
+            ).fetchall()
+            system_costs_rows = conn.execute(
+                "SELECT * FROM results_system_costs WHERE scenario_id = ?;",
+                (scenario_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+
+        return (
+            sorted(results_scenario_rows, key=str),
+            sorted(system_costs_rows, key=str),
+        )
+
+    def test_per_draw_lifecycle_differential(self):
+        """
+        A --per_draw_lifecycle run with per-draw cleanup must import
+        identical rows to a classic whole-scenario run, end with a cleaned
+        directory, and a re-run must recognize the completed draws (from
+        the cleanup marker) and finish without re-solving or altering the
+        database results. Run in temporary copies of the scenario
+        directory, so this test doesn't write into the examples/ directory
+        that test_example_ra_toolkit_monte_carlo may be using concurrently.
+        """
+        scenario_name = "ra_toolkit_monte_carlo"
+
+        # Classic whole-scenario baseline
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                os.path.join(tmp_dir, scenario_name),
+            )
+            self.run_e2e_in(scenario_name, tmp_dir, [])
+            baseline_rows = self.get_scenario_results_rows(scenario_name)
+        self.assertTrue(len(baseline_rows[0]) > 0)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            scenario_directory = os.path.join(tmp_dir, scenario_name)
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                scenario_directory,
+            )
+            # Strip the results CSVs (keeping the termination/status files),
+            # mimicking the committed example state a fresh checkout has:
+            # the per-draw mode must re-solve rather than trust and import
+            # pre-existing results files, which may be incomplete
+            for dirpath, dirnames, filenames in os.walk(scenario_directory):
+                if os.path.basename(dirpath) == "results":
+                    for fname in filenames:
+                        if fname.endswith(".csv"):
+                            os.remove(os.path.join(dirpath, fname))
+
+            per_draw_args = ["--per_draw_lifecycle", "--cleanup_after_import"]
+            self.run_e2e_in(scenario_name, tmp_dir, per_draw_args)
+
+            # Identical database rows to the classic run
+            self.assertEqual(
+                baseline_rows, self.get_scenario_results_rows(scenario_name)
+            )
+            # The draws' directories were cleaned as they were imported
+            remaining = sorted(os.listdir(scenario_directory))
+            self.assertNotIn("weather_iteration_1", remaining)
+            self.assertNotIn("weather_iteration_2", remaining)
+            self.assertIn(CLEANUP_MARKER_FILENAME, remaining)
+            self.assertIn("features.csv", remaining)
+
+            # Re-run: completed draws are recognized from the marker; the
+            # run finishes without re-solving and the results are unchanged
+            self.run_e2e_in(scenario_name, tmp_dir, per_draw_args)
+            self.assertEqual(
+                baseline_rows, self.get_scenario_results_rows(scenario_name)
+            )
+            self.assertNotIn(
+                "weather_iteration_1", sorted(os.listdir(scenario_directory))
+            )
+
+        # Batched per-draw run: both draws solved in ONE run_scenario call
+        # (--n_parallel_solve parallelizes across the batch's draws), with
+        # the same database rows and the same cleaned end-state
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            scenario_directory = os.path.join(tmp_dir, scenario_name)
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                scenario_directory,
+            )
+            self.run_e2e_in(
+                scenario_name,
+                tmp_dir,
+                [
+                    "--per_draw_lifecycle",
+                    "--cleanup_after_import",
+                    "--n_draws_per_solve_batch",
+                    "2",
+                    "--n_parallel_solve",
+                    "2",
+                ],
+            )
+            self.assertEqual(
+                baseline_rows, self.get_scenario_results_rows(scenario_name)
+            )
+            remaining = sorted(os.listdir(scenario_directory))
+            self.assertNotIn("weather_iteration_1", remaining)
+            self.assertNotIn("weather_iteration_2", remaining)
+            self.assertIn(CLEANUP_MARKER_FILENAME, remaining)
+
+    def test_single_draw_regeneration_debug_workflow(self):
+        """
+        The debugging workflow for a cleaned scenario: re-materialize ONE
+        draw's inputs with gridpath_get_inputs' iteration options (the
+        cleanup marker must stay in place, since the rest of the tree is
+        still cleaned), then solve just that draw with run_scenario's
+        --ignore_cleanup_marker. Run in a temporary copy of the scenario
+        directory.
+        """
+        scenario_name = "ra_toolkit_monte_carlo"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            scenario_directory = os.path.join(tmp_dir, scenario_name)
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                scenario_directory,
+            )
+            self.run_e2e_in(
+                scenario_name,
+                tmp_dir,
+                ["--per_draw_lifecycle", "--cleanup_after_import"],
+            )
+            results_rows = self.get_scenario_results_rows(scenario_name)
+
+            # Re-materialize one draw's inputs
+            get_scenario_inputs.main(
+                [
+                    "--database",
+                    DB_PATH,
+                    "--scenario",
+                    scenario_name,
+                    "--scenario_location",
+                    tmp_dir,
+                    "--single_draw",
+                    "1",
+                    "2010",
+                    "1",
+                    "--quiet",
+                ]
+            )
+            draw_directory = os.path.join(
+                scenario_directory,
+                "weather_iteration_1",
+                "hydro_iteration_2010",
+                "availability_iteration_1",
+            )
+            self.assertTrue(os.path.exists(draw_directory))
+            # Only the requested draw was regenerated, and the marker stays
+            self.assertFalse(
+                os.path.exists(os.path.join(scenario_directory, "weather_iteration_2"))
+            )
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(scenario_directory, CLEANUP_MARKER_FILENAME)
+                )
+            )
+
+            # The temporal-structure-CSV overwrite is the other way to
+            # regenerate part of the tree; it too must leave the cleanup
+            # marker in place (only a full regeneration clears it)
+            csv_path = os.path.join(tmp_dir, "structure_subset.csv")
+            with open(csv_path, "w", newline="") as f:
+                f.write(
+                    "weather_iteration,hydro_iteration,availability_iteration,"
+                    "subproblem,stage\n"
+                    "1,2010,1,1,1\n"
+                    "1,2010,1,2,1\n"
+                )
+            get_scenario_inputs.main(
+                [
+                    "--database",
+                    DB_PATH,
+                    "--scenario",
+                    scenario_name,
+                    "--scenario_location",
+                    tmp_dir,
+                    "--temporal_structure_csv_overwrite",
+                    "--temporal_structure_csv_path",
+                    csv_path,
+                    "--quiet",
+                ]
+            )
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(scenario_directory, CLEANUP_MARKER_FILENAME)
+                )
+            )
+
+            # A CSV listing combinations that don't exist in the scenario's
+            # structure is refused up front (they'd otherwise fail late,
+            # with no input data behind them)
+            bogus_csv_path = os.path.join(tmp_dir, "structure_bogus.csv")
+            with open(bogus_csv_path, "w", newline="") as f:
+                f.write(
+                    "weather_iteration,hydro_iteration,availability_iteration,"
+                    "subproblem,stage\n"
+                    "1,2010,7,1,1\n"
+                )
+            with self.assertRaisesRegex(ValueError, "don't exist"):
+                get_scenario_inputs.main(
+                    [
+                        "--database",
+                        DB_PATH,
+                        "--scenario",
+                        scenario_name,
+                        "--scenario_location",
+                        tmp_dir,
+                        "--temporal_structure_csv_overwrite",
+                        "--temporal_structure_csv_path",
+                        bogus_csv_path,
+                        "--quiet",
+                    ]
+                )
+
+            # A CSV whose derived directory layout differs from the
+            # scenario's (here: narrowed to only subproblem 1, so no
+            # subproblem directories) is refused on a cleaned/archived
+            # directory: the regenerated files would not line up with the
+            # original layout or the archive tarballs
+            divergent_csv_path = os.path.join(tmp_dir, "structure_divergent.csv")
+            with open(divergent_csv_path, "w", newline="") as f:
+                f.write(
+                    "weather_iteration,hydro_iteration,availability_iteration,"
+                    "subproblem,stage\n"
+                    "1,2010,1,1,1\n"
+                )
+            with self.assertRaisesRegex(ValueError, "different directory layout"):
+                get_scenario_inputs.main(
+                    [
+                        "--database",
+                        DB_PATH,
+                        "--scenario",
+                        scenario_name,
+                        "--scenario_location",
+                        tmp_dir,
+                        "--temporal_structure_csv_overwrite",
+                        "--temporal_structure_csv_path",
+                        divergent_csv_path,
+                        "--quiet",
+                    ]
+                )
+
+            run_scenario_args = [
+                "--scenario",
+                scenario_name,
+                "--scenario_location",
+                tmp_dir,
+                "--quiet",
+                "--mute_solver_output",
+            ]
+            # Solving is still guarded by the marker...
+            with self.assertRaises(RuntimeError):
+                run_scenario.main(run_scenario_args)
+            # ...and proceeds with the explicit override, solving only the
+            # regenerated draw
+            run_scenario.main(run_scenario_args + ["--ignore_cleanup_marker"])
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(
+                        draw_directory, "1", "results", "termination_condition.txt"
+                    )
+                )
+            )
+
+            # Nothing in this workflow touches the database results
+            self.assertEqual(
+                results_rows, self.get_scenario_results_rows(scenario_name)
+            )
+
+            # The one-command alternative: gridpath_run_e2e
+            # --per_draw_lifecycle --single_draw re-runs the full pipeline
+            # for that draw. The draw's marker row must NOT skip it (it was
+            # requested explicitly), only its own database rows are
+            # re-imported (differential: rows identical to the full run's),
+            # and, with no cleanup flag, its directory remains on disk
+            self.run_e2e_in(
+                scenario_name,
+                tmp_dir,
+                ["--per_draw_lifecycle", "--single_draw", "1", "2010", "1"],
+            )
+            self.assertEqual(
+                results_rows, self.get_scenario_results_rows(scenario_name)
+            )
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(
+                        draw_directory, "1", "results", "termination_condition.txt"
+                    )
+                )
+            )
+            # The other draw is still cleaned, and the marker still guards
+            self.assertFalse(
+                os.path.exists(os.path.join(scenario_directory, "weather_iteration_2"))
+            )
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(scenario_directory, CLEANUP_MARKER_FILENAME)
+                )
+            )
+
+    def test_cleanup_after_import_differential(self):
+        """
+        An E2E run with --cleanup_after_import must import the same rows into
+        the database as a run without it, end with only the scenario-level
+        files and logs on disk, refuse a re-import while the cleanup marker
+        is present (without touching the database results), and become
+        usable again after get_scenario_inputs regenerates the directory.
+        Run in temporary copies of the scenario directory, so this test
+        doesn't write into the examples/ directory that
+        test_example_ra_toolkit_monte_carlo may be using concurrently.
+        """
+        scenario_name = "ra_toolkit_monte_carlo"
+
+        def run_e2e(scenario_location, additional_args):
+            self.run_e2e_in(scenario_name, scenario_location, additional_args)
+
+        def get_results_rows():
+            return self.get_scenario_results_rows(scenario_name)
+
+        # Baseline run without cleanup
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                os.path.join(tmp_dir, scenario_name),
+            )
+            run_e2e(tmp_dir, [])
+            baseline_rows = get_results_rows()
+        self.assertTrue(len(baseline_rows[0]) > 0)
+
+        # Run with cleanup: identical database rows, cleaned directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            scenario_directory = os.path.join(tmp_dir, scenario_name)
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, scenario_name),
+                scenario_directory,
+            )
+            # --log so the run writes the scenario-root logs directory,
+            # which cleanup must leave alone (the e2e log is still open)
+            run_e2e(tmp_dir, ["--cleanup_after_import", "--log"])
+            self.assertEqual(baseline_rows, get_results_rows())
+
+            # The iteration draws are gone; scenario-level files, logs, and
+            # the cleanup marker remain
+            remaining = sorted(os.listdir(scenario_directory))
+            self.assertNotIn("weather_iteration_1", remaining)
+            self.assertNotIn("weather_iteration_2", remaining)
+            for retained in [
+                "scenario_description.csv",
+                "features.csv",
+                "units.csv",
+                "logs",
+                CLEANUP_MARKER_FILENAME,
+            ]:
+                self.assertIn(retained, remaining)
+
+            # Re-import on the cleaned directory must refuse without
+            # touching the database results
+            with self.assertRaises(RuntimeError):
+                import_scenario_results.main(
+                    [
+                        "--database",
+                        DB_PATH,
+                        "--scenario",
+                        scenario_name,
+                        "--scenario_location",
+                        tmp_dir,
+                        "--quiet",
+                    ]
+                )
+            self.assertEqual(baseline_rows, get_results_rows())
+
+            # Regenerating the inputs removes the marker and makes the
+            # directory usable again
+            get_scenario_inputs.main(
+                [
+                    "--database",
+                    DB_PATH,
+                    "--scenario",
+                    scenario_name,
+                    "--scenario_location",
+                    tmp_dir,
+                    "--quiet",
+                ]
+            )
+            self.assertFalse(
+                os.path.exists(
+                    os.path.join(scenario_directory, CLEANUP_MARKER_FILENAME)
+                )
+            )
+            self.assertTrue(
+                os.path.exists(os.path.join(scenario_directory, "weather_iteration_1"))
+            )
 
     def test_example_multi_stage_prod_cost_w_hydro(self):
         """
@@ -1060,10 +1673,6 @@ class TestExamples(unittest.TestCase):
         """
         Check validation and objective function value of
         "test_new_solar_carbon_cap_dac" example.
-
-        Note that the same version of Cbc (v2.10.12) produces a slightly
-        different objective function for this problem on Windows/Linux than on
-        Mac as of Python v3.12.
         :return:
         """
         scenario_name = "test_new_solar_carbon_cap_dac"
@@ -1270,19 +1879,27 @@ class TestExamples(unittest.TestCase):
     def test_incomplete_only(self):
         """
         Check that the "incomplete only" functionality works with no errors.
+        Run in a temporary copy of the scenario directory, so that this test
+        doesn't write into the examples/ directory that test_example_test
+        may be using concurrently.
         :return:
         """
-        actual_objective = run_scenario.main(
-            [
-                "--scenario",
-                "test",
-                "--scenario_location",
-                EXAMPLES_DIRECTORY,
-                "--quiet",
-                "--mute_solver_output",
-                "--incomplete_only",
-            ]
-        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(
+                os.path.join(EXAMPLES_DIRECTORY, "test"),
+                os.path.join(tmp_dir, "test"),
+            )
+            actual_objective = run_scenario.main(
+                [
+                    "--scenario",
+                    "test",
+                    "--scenario_location",
+                    tmp_dir,
+                    "--quiet",
+                    "--mute_solver_output",
+                    "--incomplete_only",
+                ]
+            )
 
     def test_example_test_w_storage_starting_soc(self):
         """
@@ -1686,6 +2303,68 @@ class TestExamples(unittest.TestCase):
         scenario_name = "hydro_system_exog_elev_w_gen_ramp_limits"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
 
+    def test_hydro_system_exog_elev_w_binding_tmp_flow_max(self):
+        """
+        Check that per-timepoint max water flow bounds are enforced: peak-hour
+        flow caps on the water links limit hydro power output below the load
+        level, resulting in unserved energy.
+        :return:
+        """
+        scenario_name = "hydro_system_exog_elev_w_binding_tmp_flow_max"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
+    def test_hydro_system_exog_elev_w_binding_tmp_flow_max_w_threshold(self):
+        """
+        Check the timepoint-level threshold sidestream flow adjustment: same
+        per-timepoint max water flow bounds as
+        hydro_system_exog_elev_w_binding_tmp_flow_max, but with a threshold
+        sidestream inflow below the upstream exogenous inflows and an
+        upstream-node map for the bounded links, so the max flow bounds are
+        relaxed by (upstream inflow - threshold) in every timepoint. The
+        objective must improve substantially relative to the base binding
+        example (the caps no longer force as much unserved energy).
+        :return:
+        """
+        scenario_name = "hydro_system_exog_elev_w_binding_tmp_flow_max_w_threshold"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
+    def test_hydro_system_exog_elev_w_flow_and_volume_violations(self):
+        """
+        Check water system violation penalties: a horizon min flow
+        requirement, a reservoir target release, and a reservoir minimum
+        volume are all set above achievable levels with violations allowed,
+        so their respective penalty costs must show up in the objective.
+        :return:
+        """
+        scenario_name = "hydro_system_exog_elev_w_flow_and_volume_violations"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
+    def test_hydro_system_exog_elev_w_bt_hrz_inflows(self):
+        """
+        Check horizon-level average exogenous water inflows: same as
+        hydro_system_exog_elev, but with part of each node's inflow moved
+        from the timepoint-level inputs to horizon-level average inputs
+        (spread across the horizon's timepoints, additive with the
+        timepoint-level inflows). The totals are unchanged, so this
+        scenario must reproduce the hydro_system_exog_elev objective.
+        :return:
+        """
+        scenario_name = "hydro_system_exog_elev_w_bt_hrz_inflows"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
+    def test_hydro_system_exog_elev_w_hrz_only_inflows(self):
+        """
+        Check that the timepoint-level inflow inputs can be skipped
+        entirely: same as hydro_system_exog_elev, but with all inflows
+        specified as horizon-level averages (no water_inflows.tab is
+        written for this scenario). The base inflows are constant within
+        the day, so the totals are unchanged and this scenario must
+        reproduce the hydro_system_exog_elev objective.
+        :return:
+        """
+        scenario_name = "hydro_system_exog_elev_w_hrz_only_inflows"
+        self.validate_and_test_example_generic(scenario_name=scenario_name)
+
     def test_dsm_examples(self):
         scenario_name = "dsm_examples"
         self.validate_and_test_example_generic(scenario_name=scenario_name)
@@ -1870,21 +2549,23 @@ class TestExamples(unittest.TestCase):
                 os.remove(temp_file)
 
 
-def objective_function_overwrite(scenario_name, starting_objective):
+def objective_values_to_float(objective):
+    """
+    Recursively convert the values of a (possibly nested) objective-value
+    dictionary to plain Python floats.
+    """
+    if isinstance(objective, dict):
+        return {k: objective_values_to_float(v) for k, v in objective.items()}
+    # A failed solve produces a None objective value; keep it as None so
+    # that the objective-value comparison can report it
+    return None if objective is None else float(objective)
 
+
+def objective_function_overwrite(scenario_name, starting_objective):
+    # No overwrites are currently needed; with Cbc as the default solver,
+    # this was used for a Python-version-dependent objective function value
+    # for one of the examples. Keeping the hook in case it is needed again.
     objective = starting_objective
-    # On Python <3.12, we have one example with a slightly different
-    # objective function value; set it here
-    # TODO: remove this when we stop supporting Python <3.12
-    if (
-        PYTHON_VERSION < "3.12"
-        and scenario_name == "test_new_solar_carbon_credits_w_sell"
-    ):
-        print(
-            f"GridPath: overriding objective function for "
-            f"test_new_solar_carbon_credits_w_sell on Python v{PYTHON_VERSION}."
-        )
-        objective = ast.literal_eval("{('', '', '', 1): {1: 978964234435709.4}}")
 
     return objective
 
