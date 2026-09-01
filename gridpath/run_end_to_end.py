@@ -487,7 +487,7 @@ def get_timing_summary_file_path(logs_directory, process_id, start_time):
 #   to run_end_to_end.py, even if the parsing fails at one of the scripts
 #   being called here (e.g. run_scenario.py), while the listed arguments refer
 #   to the parser used when the script fails
-def main(args=None):
+def main(args=None, lic_queue_and_worker_timmer=None):
     """
 
     :param args:
@@ -694,6 +694,7 @@ def main(args=None):
             run_scenario_args = args + ["--scenario", scenario]
             expected_objective_values = run_scenario.main(
                 args=run_scenario_args,
+                lic_queue_and_worker_timmer=lic_queue_and_worker_timmer,
             )
         except Exception as e:
             logging.exception(e)
@@ -723,69 +724,137 @@ def main(args=None):
     else:
         expected_objective_values = None
 
-    if not skip_import_results and not parsed_args.skip_import_results:
-        step_start_time = datetime.datetime.now()
-        try:
-            import_statuses = import_scenario_results.main(args=args)
-        except Exception as e:
-            logging.exception(e)
-            end_time = update_db_for_run_end(
-                db_path=db_path,
-                scenario=scenario,
-                queue_order_id=queue_order_id,
-                process_id=process_id,
-                run_status_id=3,
-                start_time=start_time,
-                timing_summary_file_path=timing_summary_file_path,
-            )
-            print(
-                "Error encountered when importing results for "
-                "scenario {}. End time: {}. Total run time: {}.".format(
-                    scenario, end_time, end_time - start_time
+    if lic_queue_and_worker_timmer is not None:
+        print("waiting for DB_reader")
+        with lic_queue_and_worker_timmer[2]:
+            if not skip_import_results and not parsed_args.skip_import_results:
+                step_start_time = datetime.datetime.now()
+                try:
+                    import_statuses = import_scenario_results.main(args=args)
+                except Exception as e:
+                    logging.exception(e)
+                    end_time = update_db_for_run_end(
+                        db_path=db_path,
+                        scenario=scenario,
+                        queue_order_id=queue_order_id,
+                        process_id=process_id,
+                        run_status_id=3,
+                        start_time=start_time,
+                        timing_summary_file_path=timing_summary_file_path,
+                    )
+                    print(
+                        "Error encountered when importing results for "
+                        "scenario {}. End time: {}. Total run time: {}.".format(
+                            scenario, end_time, end_time - start_time
+                        )
+                    )
+                    sys.exit(1)
+                record_step_timing(
+                    db_path=db_path,
+                    scenario_id=scenario_id,
+                    process_id=process_id,
+                    step="import_results",
+                    step_start_time=step_start_time,
+                    timing_summary_file_path=timing_summary_file_path,
+                    quiet=parsed_args.quiet,
                 )
-            )
-            sys.exit(1)
-        record_step_timing(
-            db_path=db_path,
-            scenario_id=scenario_id,
-            process_id=process_id,
-            step="import_results",
-            step_start_time=step_start_time,
-            timing_summary_file_path=timing_summary_file_path,
-            quiet=parsed_args.quiet,
-        )
 
-    if not skip_process_results and not parsed_args.skip_process_results:
-        step_start_time = datetime.datetime.now()
-        try:
-            process_results.main(args=args)
-        except Exception as e:
-            logging.exception(e)
-            end_time = update_db_for_run_end(
-                db_path=db_path,
-                scenario=scenario,
-                queue_order_id=queue_order_id,
-                process_id=process_id,
-                run_status_id=3,
-                start_time=start_time,
-                timing_summary_file_path=timing_summary_file_path,
-            )
-            print(
-                "Error encountered when processing results for "
-                "scenario {}. End time: {}. Total run time: {}.".format(
-                    scenario, end_time, end_time - start_time
+            if not skip_process_results and not parsed_args.skip_process_results:
+                step_start_time = datetime.datetime.now()
+                try:
+                    process_results.main(args=args)
+                except Exception as e:
+                    logging.exception(e)
+                    end_time = update_db_for_run_end(
+                        db_path=db_path,
+                        scenario=scenario,
+                        queue_order_id=queue_order_id,
+                        process_id=process_id,
+                        run_status_id=3,
+                        start_time=start_time,
+                        timing_summary_file_path=timing_summary_file_path,
+                    )
+                    print(
+                        "Error encountered when processing results for "
+                        "scenario {}. End time: {}. Total run time: {}.".format(
+                            scenario, end_time, end_time - start_time
+                        )
+                    )
+                    sys.exit(1)
+                record_step_timing(
+                    db_path=db_path,
+                    scenario_id=scenario_id,
+                    process_id=process_id,
+                    step="process_results",
+                    step_start_time=step_start_time,
+                    timing_summary_file_path=timing_summary_file_path,
+                    quiet=parsed_args.quiet,
                 )
+
+    else:
+        if not skip_import_results and not parsed_args.skip_import_results:
+            step_start_time = datetime.datetime.now()
+            try:
+                import_statuses = import_scenario_results.main(args=args)
+            except Exception as e:
+                logging.exception(e)
+                end_time = update_db_for_run_end(
+                    db_path=db_path,
+                    scenario=scenario,
+                    queue_order_id=queue_order_id,
+                    process_id=process_id,
+                    run_status_id=3,
+                    start_time=start_time,
+                    timing_summary_file_path=timing_summary_file_path,
+                )
+                print(
+                    "Error encountered when importing results for "
+                    "scenario {}. End time: {}. Total run time: {}.".format(
+                        scenario, end_time, end_time - start_time
+                    )
+                )
+                sys.exit(1)
+            record_step_timing(
+                db_path=db_path,
+                scenario_id=scenario_id,
+                process_id=process_id,
+                step="import_results",
+                step_start_time=step_start_time,
+                timing_summary_file_path=timing_summary_file_path,
+                quiet=parsed_args.quiet,
             )
-            sys.exit(1)
-        record_step_timing(
-            db_path=db_path,
-            scenario_id=scenario_id,
-            process_id=process_id,
-            step="process_results",
-            step_start_time=step_start_time,
-            timing_summary_file_path=timing_summary_file_path,
-            quiet=parsed_args.quiet,
-        )
+
+        if not skip_process_results and not parsed_args.skip_process_results:
+            step_start_time = datetime.datetime.now()
+            try:
+                process_results.main(args=args)
+            except Exception as e:
+                logging.exception(e)
+                end_time = update_db_for_run_end(
+                    db_path=db_path,
+                    scenario=scenario,
+                    queue_order_id=queue_order_id,
+                    process_id=process_id,
+                    run_status_id=3,
+                    start_time=start_time,
+                    timing_summary_file_path=timing_summary_file_path,
+                )
+                print(
+                    "Error encountered when processing results for "
+                    "scenario {}. End time: {}. Total run time: {}.".format(
+                        scenario, end_time, end_time - start_time
+                    )
+                )
+                sys.exit(1)
+            record_step_timing(
+                db_path=db_path,
+                scenario_id=scenario_id,
+                process_id=process_id,
+                step="process_results",
+                step_start_time=step_start_time,
+                timing_summary_file_path=timing_summary_file_path,
+                quiet=parsed_args.quiet,
+            )
 
     # In per-draw mode, cleanup/archiving already happened per draw
     if not per_draw_mode and (
