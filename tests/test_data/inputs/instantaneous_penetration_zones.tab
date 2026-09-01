@@ -1,2 +1,3 @@
 instantaneous_penetration_zone	allow_violation_min_penetration	violation_penalty_min_penetration_per_mwh	allow_violation_max_penetration	violation_penalty_max_penetration_per_mwh
 IPZone1	0	0	0	0
+IPZone2	0	0	0	0

@@ -49,7 +49,7 @@ def add_model_components(
         return sum(
             mod.Bulk_Power_Provision_MW[g, tmp]
             for g in mod.INST_PEN_PRJ_OPERATIONAL_IN_TIMEPOINT[tmp]
-            if mod.instantaneous_penetration_zone[g] == z
+            if g in mod.INST_PEN_PRJS_BY_INSTANTANEOUS_PENETRATION_ZONE[z]
         )
 
     m.Total_Instantaneous_Penetration_Energy_MWh = Expression(

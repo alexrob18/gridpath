@@ -85,7 +85,23 @@ def add_model_components(
     # Sets
     ###########################################################################
 
-    m.INST_PEN_PRJS = Set(within=m.PROJECTS)
+    m.INST_PEN_PRJS_IN_INST_PEN_ZONE = Set(dimen=2, within=m.PROJECTS * m.INSTANTANEOUS_PENETRATION_ZONES)
+
+    # derived sets
+    m.INST_PEN_PRJS = Set(
+        within=m.PROJECTS,
+        initialize=lambda mod: list(
+            set(
+                [
+                    prj
+                    for (
+                    prj,
+                    z,
+                ) in mod.INST_PEN_PRJS_IN_INST_PEN_ZONE
+                ]
+            )
+        ),
+    )
 
     m.INST_PEN_PRJ_OPR_TMP = Set(
         within=m.PRJ_OPR_TMPS,
@@ -97,35 +113,16 @@ def add_model_components(
         ),
     )
 
-    # Input Params
-    ###########################################################################
-
-    m.instantaneous_penetration_zone = Param(
-        m.INST_PEN_PRJS, within=m.INSTANTANEOUS_PENETRATION_ZONES
-    )
-
     # Derived Sets (requires input params)
     ###########################################################################
 
     m.INST_PEN_PRJS_BY_INSTANTANEOUS_PENETRATION_ZONE = Set(
-        m.INST_PEN_PRJS,
-        within=m.INST_PEN_PRJ_OPR_TMP,
-        initialize=determine_instantaneous_penetration_generators_by_instantaneous_penetration_zone,
+        m.INSTANTANEOUS_PENETRATION_ZONES,
+        within=m.INST_PEN_PRJS,
+        initialize=lambda mod, ip_z: [
+            prj for (prj, z) in mod.INST_PEN_PRJS_IN_INST_PEN_ZONE if ip_z == z
+        ],
     )
-
-
-# Set Rules
-###############################################################################
-
-
-def determine_instantaneous_penetration_generators_by_instantaneous_penetration_zone(
-    mod, instantaneous_penetration_z
-):
-    return [
-        p
-        for p in mod.INST_PEN_PRJS
-        if mod.instantaneous_penetration_zone[p] == instantaneous_penetration_z
-    ]
 
 
 # Input-Output
@@ -162,15 +159,10 @@ def load_model_data(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "project_instantaneous_penetration_zone.tab",
         ),
-        select=("project", "instantaneous_penetration_zone"),
-        param=(m.instantaneous_penetration_zone,),
+        set=m.INST_PEN_PRJS_IN_INST_PEN_ZONE,
     )
-
-    data_portal.data()["INST_PEN_PRJS"] = {
-        None: list(data_portal.data()["instantaneous_penetration_zone"].keys())
-    }
 
 
 def export_results(
@@ -318,11 +310,6 @@ def write_model_inputs(
         conn,
     )
 
-    # Make a dict for easy access
-    prj_zone_dict = dict()
-    for prj, zone in project_zones:
-        prj_zone_dict[str(prj)] = "." if zone is None else str(zone)
-
     with open(
         os.path.join(
             scenario_directory,
@@ -332,46 +319,21 @@ def write_model_inputs(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
-        ),
-        "r",
-    ) as projects_file_in:
-        reader = csv.reader(projects_file_in, delimiter="\t", lineterminator="\n")
-
-        new_rows = list()
-
-        # Append column header
-        header = next(reader)
-        header.append("instantaneous_penetration_zone")
-        new_rows.append(header)
-
-        # Append correct values
-        for row in reader:
-            # If project specified, check if BA specified or not
-            if row[0] in list(prj_zone_dict.keys()):
-                row.append(prj_zone_dict[row[0]])
-                new_rows.append(row)
-            # If project not specified, specify no BA
-            else:
-                row.append(".")
-                new_rows.append(row)
-
-    with open(
-        os.path.join(
-            scenario_directory,
-            weather_iteration,
-            hydro_iteration,
-            availability_iteration,
-            subproblem,
-            stage,
-            "inputs",
-            "projects.tab",
+            "project_instantaneous_penetration_zone.tab",
         ),
         "w",
         newline="",
     ) as projects_file_out:
         writer = csv.writer(projects_file_out, delimiter="\t", lineterminator="\n")
-        writer.writerows(new_rows)
+
+        writer.writerow(
+            [
+                "project",
+                "instantaneous_penetration_zone",
+            ]
+        )
+        for row in project_zones.fetchall():
+            writer.writerow(list(row))
 
 
 def process_results(db, c, scenario_id, subscenarios, quiet):

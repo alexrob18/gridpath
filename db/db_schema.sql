@@ -3351,7 +3351,7 @@ CREATE TABLE inputs_project_energy_target_zones
     project_energy_target_zone_scenario_id INTEGER,
     project                                VARCHAR(64),
     energy_target_zone                     VARCHAR(32),
-    PRIMARY KEY (project_energy_target_zone_scenario_id, project),
+    PRIMARY KEY (project_energy_target_zone_scenario_id, project, energy_target_zone),
     FOREIGN KEY (project_energy_target_zone_scenario_id) REFERENCES
         subscenarios_project_energy_target_zones (project_energy_target_zone_scenario_id)
 );
@@ -3374,7 +3374,7 @@ CREATE TABLE inputs_project_instantaneous_penetration_zones
     project_instantaneous_penetration_zone_scenario_id INTEGER,
     project                                            VARCHAR(64),
     instantaneous_penetration_zone                     VARCHAR(32),
-    PRIMARY KEY (project_instantaneous_penetration_zone_scenario_id, project),
+    PRIMARY KEY (project_instantaneous_penetration_zone_scenario_id, project, instantaneous_penetration_zone),
     FOREIGN KEY (project_instantaneous_penetration_zone_scenario_id) REFERENCES
         subscenarios_project_instantaneous_penetration_zones (project_instantaneous_penetration_zone_scenario_id)
 );

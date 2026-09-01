@@ -127,18 +127,6 @@ class TestRECs(unittest.TestCase):
         actual_inst_pen_projects = sorted([p for p in instance.INST_PEN_PRJS])
         self.assertListEqual(expected_inst_pen_projects, actual_inst_pen_projects)
 
-        # Param: energy_target_zone
-        expected_inst_pen_zone_by_prj = OrderedDict(sorted({"Wind": "IPZone1"}.items()))
-        actual_inst_pen_zone_by_prj = OrderedDict(
-            sorted(
-                {
-                    p: instance.instantaneous_penetration_zone[p]
-                    for p in instance.INST_PEN_PRJS
-                }.items()
-            )
-        )
-        self.assertDictEqual(expected_inst_pen_zone_by_prj, actual_inst_pen_zone_by_prj)
-
         # Set: ENERGY_TARGET_PRJ_OPR_TMPS
         expected_inst_pen_prj_op_tmp = sorted(
             get_project_operational_timepoints(expected_inst_pen_projects)

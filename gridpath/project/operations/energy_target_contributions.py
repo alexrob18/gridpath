@@ -138,8 +138,23 @@ def add_model_components(
 
     # Sets
     ###########################################################################
+    m.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE = Set(dimen=2, within=m.PROJECTS * m.ENERGY_TARGET_ZONES)
 
-    m.ENERGY_TARGET_PRJS = Set(within=m.PROJECTS)
+    # derived sets
+    m.ENERGY_TARGET_PRJS = Set(
+        within=m.PROJECTS,
+        initialize=lambda mod: list(
+            set(
+                [
+                    prj
+                    for (
+                        prj,
+                        z,
+                    ) in mod.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE
+                ]
+            )
+        ),
+    )
 
     m.ENERGY_TARGET_PRJ_OPR_TMPS = Set(
         within=m.PRJ_OPR_TMPS,
@@ -151,18 +166,15 @@ def add_model_components(
         ),
     )
 
-    # Input Params
-    ###########################################################################
-
-    m.energy_target_zone = Param(m.ENERGY_TARGET_PRJS, within=m.ENERGY_TARGET_ZONES)
-
     # Derived Sets (requires input params)
     ###########################################################################
 
     m.ENERGY_TARGET_PRJS_BY_ENERGY_TARGET_ZONE = Set(
         m.ENERGY_TARGET_ZONES,
         within=m.ENERGY_TARGET_PRJS,
-        initialize=determine_energy_target_generators_by_energy_target_zone,
+        initialize=lambda mod, et_z: [
+            prj for (prj, z) in mod.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE if et_z == z
+        ],
     )
 
     # Expressions
@@ -241,18 +253,6 @@ def add_model_components(
     )
 
 
-# Set Rules
-###############################################################################
-
-
-def determine_energy_target_generators_by_energy_target_zone(mod, energy_target_z):
-    return [
-        p
-        for p in mod.ENERGY_TARGET_PRJS
-        if mod.energy_target_zone[p] == energy_target_z
-    ]
-
-
 # Input-Output
 ###############################################################################
 
@@ -287,15 +287,10 @@ def load_model_data(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
+            "project_energy_target_zones.tab",
         ),
-        select=("project", "energy_target_zone"),
-        param=(m.energy_target_zone,),
+        set=m.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE,
     )
-
-    data_portal.data()["ENERGY_TARGET_PRJS"] = {
-        None: list(data_portal.data()["energy_target_zone"].keys())
-    }
 
 
 def export_results(
@@ -449,11 +444,6 @@ def write_model_inputs(
         conn,
     )
 
-    # Make a dict for easy access
-    prj_zone_dict = dict()
-    for prj, zone in project_zones:
-        prj_zone_dict[str(prj)] = "." if zone is None else str(zone)
-
     with open(
         os.path.join(
             scenario_directory,
@@ -463,46 +453,21 @@ def write_model_inputs(
             subproblem,
             stage,
             "inputs",
-            "projects.tab",
-        ),
-        "r",
-    ) as projects_file_in:
-        reader = csv.reader(projects_file_in, delimiter="\t", lineterminator="\n")
-
-        new_rows = list()
-
-        # Append column header
-        header = next(reader)
-        header.append("energy_target_zone")
-        new_rows.append(header)
-
-        # Append correct values
-        for row in reader:
-            # If project specified, check if BA specified or not
-            if row[0] in list(prj_zone_dict.keys()):
-                row.append(prj_zone_dict[row[0]])
-                new_rows.append(row)
-            # If project not specified, specify no BA
-            else:
-                row.append(".")
-                new_rows.append(row)
-
-    with open(
-        os.path.join(
-            scenario_directory,
-            weather_iteration,
-            hydro_iteration,
-            availability_iteration,
-            subproblem,
-            stage,
-            "inputs",
-            "projects.tab",
+            "project_energy_target_zones.tab",
         ),
         "w",
         newline="",
     ) as projects_file_out:
         writer = csv.writer(projects_file_out, delimiter="\t", lineterminator="\n")
-        writer.writerows(new_rows)
+
+        writer.writerow(
+            [
+                "project",
+                "energy_target_zone",
+            ]
+        )
+        for row in project_zones.fetchall():
+            writer.writerow(list(row))
 
 
 def process_results(db, c, scenario_id, subscenarios, quiet):

@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+import collections
+collections.Callable = collections.abc.Callable
 from collections import OrderedDict
 from importlib import import_module
 import os.path

@@ -126,25 +126,9 @@ class TestRECs(unittest.TestCase):
             expected_energy_target_projects, actual_energy_target_projects
         )
 
-        # Param: energy_target_zone
-        expected_energy_target_zone_by_prj = OrderedDict(
-            sorted({"Wind": "RPS_Zone_1", "Wind_z2": "RPS_Zone_2"}.items())
-        )
-        actual_energy_target_zone_by_prj = OrderedDict(
-            sorted(
-                {
-                    p: instance.energy_target_zone[p]
-                    for p in instance.ENERGY_TARGET_PRJS
-                }.items()
-            )
-        )
-        self.assertDictEqual(
-            expected_energy_target_zone_by_prj, actual_energy_target_zone_by_prj
-        )
-
         # Set: ENERGY_TARGET_PRJS_BY_ENERGY_TARGET_ZONE
         expected_prj_by_zone = OrderedDict(
-            sorted({"RPS_Zone_1": ["Wind"], "RPS_Zone_2": ["Wind_z2"]}.items())
+            sorted({"RPS_Zone_1": ["Wind", "Wind_z2"], "RPS_Zone_2": ["Wind_z2"]}.items())
         )
         actual_prj_by_zone = OrderedDict(
             sorted(
