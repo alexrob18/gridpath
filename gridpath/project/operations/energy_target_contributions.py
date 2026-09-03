@@ -331,7 +331,7 @@ def export_results(
             value(m.Subhourly_Curtailment_MW[prj, tmp]),
         ]
         for (prj, tmp) in m.ENERGY_TARGET_PRJ_OPR_TMPS
-        for (prj_z, energy_target_zone) in mod.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE
+        for (prj_z, energy_target_zone) in m.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE
         if prj == prj_z
     ]
 

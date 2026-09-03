@@ -197,7 +197,7 @@ def export_results(
             value(m.Bulk_Power_Provision_MW[prj, tmp]),
         ]
         for (prj, tmp) in m.INST_PEN_PRJ_OPR_TMP
-        for (prj_z, inst_pen) in mod.INST_PEN_PRJS_IN_INST_PEN_ZONE
+        for (prj_z, inst_pen) in m.INST_PEN_PRJS_IN_INST_PEN_ZONE
         if prj == prj_z
     ]
 
