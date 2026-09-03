@@ -193,10 +193,12 @@ def export_results(
         [
             prj,
             tmp,
-            m.instantaneous_penetration_zone[prj],
+            inst_pen,
             value(m.Bulk_Power_Provision_MW[prj, tmp]),
         ]
         for (prj, tmp) in m.INST_PEN_PRJ_OPR_TMP
+        for (prj_z, inst_pen) in mod.INST_PEN_PRJS_IN_INST_PEN_ZONE
+        if prj == prj_z
     ]
 
     results_df = create_results_df(

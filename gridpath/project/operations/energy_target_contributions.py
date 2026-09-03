@@ -324,13 +324,15 @@ def export_results(
         [
             prj,
             tmp,
-            m.energy_target_zone[prj],
+            energy_target_zone,
             value(m.Scheduled_Energy_Target_Energy_MW[prj, tmp]),
             value(m.Scheduled_Curtailment_MW[prj, tmp]),
             value(m.Subhourly_Energy_Target_Energy_MW[prj, tmp]),
             value(m.Subhourly_Curtailment_MW[prj, tmp]),
         ]
         for (prj, tmp) in m.ENERGY_TARGET_PRJ_OPR_TMPS
+        for (prj_z, energy_target_zone) in mod.ENERGY_TARGET_PRJS_IN_ENERGY_TARGET_ZONE
+        if prj == prj_z
     ]
 
     results_df = create_results_df(
